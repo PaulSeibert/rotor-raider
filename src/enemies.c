@@ -19,6 +19,12 @@ static const int16_t s_pAlertJet[6] = {0, 100, 200, 300, 400, 500};
 static const int16_t s_pAlertBomber[6] = {0, 150, 300, 450, 600, 750};
 static const int16_t s_pAlertBoat[6] = {0, 50, 100, 150, 200, 250};
 static const int16_t s_pAlertCool[6] = {0, 8, 16, 24, 32, 40};
+// each theatre presses harder: Coral Reach, Ember Flats, Frostline
+static const int8_t s_pThTurretCool[THEATRES] = {0, -15, -30};
+static const int16_t s_pThJet[THEATRES] = {0, -250, -450};
+static const int16_t s_pThBomber[THEATRES] = {0, -300, -600};
+static const int16_t s_pThBoat[THEATRES] = {0, -100, -200};
+static inline uint8_t thIx(const tGame *g) { return g->theatre < THEATRES ? g->theatre : THEATRES - 1; }
 
 static inline int16_t absw(int16_t v) { return v < 0 ? (int16_t)-v : v; }
 
@@ -45,6 +51,8 @@ static inline int16_t dist(int16_t dx, int16_t dy) {
 	int16_t ax = absw(dx), ay = absw(dy);
 	return ax > ay ? (int16_t)(ax + (ay >> 1)) : (int16_t)(ay + (ax >> 1));
 }
+
+int16_t logicDist(int16_t dx, int16_t dy) { return dist(dx, dy); }
 
 uint8_t logicHeadingTo(int16_t dx, int16_t dy) {
 	int16_t ax = absw(dx), ay = absw(dy);
@@ -213,7 +221,7 @@ static void eshotsUpdate(tGame *g) {
 static void turretsUpdate(tGame *g) {
 	const tChopper *c = &g->chop;
 	uint8_t isTarget = g->state == GS_PLAY && !c->landed && c->alt;
-	uint8_t isMissile = logicAlert(g) >= MISSILE_ALERT;
+	uint8_t isMissile = logicAlert(g) >= logicMissileAlert(g);
 	for(uint8_t i = (uint8_t)(g->frame & 3); i < g->ubStructs; i = (uint8_t)(i + 4)) {
 		tStruct *s = &g->pStructs[i];
 		if(s->type != OBJ_TURRET || !s->hp) continue;
@@ -223,7 +231,8 @@ static void turretsUpdate(tGame *g) {
 		if(dist((int16_t)(c->x - x), (int16_t)(c->y - y)) > TURRET_RANGE) continue;
 		if(isMissile && !(logicRandom(g) & 3)) missileFire(g, x, y);
 		else flakFire(g, x, y);
-		int16_t wCool = (int16_t)(TURRET_COOL + s_pTurretCool[g->difficulty] - s_pAlertCool[logicAlert(g)] + (logicRandom(g) & 31));
+		int16_t wCool = (int16_t)(TURRET_COOL + s_pTurretCool[g->difficulty] + s_pThTurretCool[thIx(g)] -
+			s_pAlertCool[logicAlert(g)] + (logicRandom(g) & 31));
 		s->timer = (uint16_t)(wCool < 30 ? 30 : wCool);
 	}
 }
@@ -416,7 +425,7 @@ static void cruiserUpdate(tGame *g) {
 	if(k->sunk) return;
 	if(!k->active) {
 		if(g->state != GS_PLAY || !g->carrier.hp) return;
-		if(++g->uwBuild < CRUISER_BUILD) return;
+		if(++g->uwBuild < logicCruiserBuild(g)) return;
 		// it sails in along the carrier's lane, from the far side
 		k->active = 1;
 		k->hp = CRUISER_HP;
@@ -529,18 +538,18 @@ void enemiesUpdate(tGame *g) {
 		uint8_t a = logicAlert(g);
 		if(!--g->uwJetTimer) {
 			airSpawn(g, AIR_JET);
-			int16_t t = (int16_t)(JET_EVERY + s_pJetExtra[g->difficulty] - s_pAlertJet[a] + (logicRandom(g) & 255));
+			int16_t t = (int16_t)(JET_EVERY + s_pJetExtra[g->difficulty] + s_pThJet[thIx(g)] - s_pAlertJet[a] + (logicRandom(g) & 255));
 			if(!ubRadars) t = (int16_t)(t + JET_EVERY);
 			g->uwJetTimer = (uint16_t)(t < 200 ? 200 : t);
 		}
 		if(!--g->uwBomberTimer) {
 			if(g->carrier.hp) airSpawn(g, AIR_BOMBER);
-			int16_t t = (int16_t)(BOMBER_EVERY + s_pBomberExtra[g->difficulty] - s_pAlertBomber[a] + (logicRandom(g) & 511));
+			int16_t t = (int16_t)(BOMBER_EVERY + s_pBomberExtra[g->difficulty] + s_pThBomber[thIx(g)] - s_pAlertBomber[a] + (logicRandom(g) & 511));
 			g->uwBomberTimer = (uint16_t)(t < 400 ? 400 : t);
 		}
 		if(!--g->uwBoatTimer) {
 			boatSpawn(g);
-			g->uwBoatTimer = (uint16_t)(BOAT_EVERY - s_pAlertBoat[a] + (logicRandom(g) & 255));
+			g->uwBoatTimer = (uint16_t)(BOAT_EVERY + s_pThBoat[thIx(g)] - s_pAlertBoat[a] + (logicRandom(g) & 255));
 		}
 	}
 	turretsUpdate(g);

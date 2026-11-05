@@ -18,7 +18,7 @@ expect-scroll 0 0 319 70 140 0 5/2
 release
 press left 21
 hold up
-wait 90
+wait 200
 expect-scroll 0 0 319 70 140 7/4 -7/4
 screenshot southwest
 release

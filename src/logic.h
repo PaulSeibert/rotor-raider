@@ -26,6 +26,18 @@ static inline int32_t mulw(int16_t a, int16_t b) {
 #endif
 }
 
+// a 32 / 16 -> 16 bit signed divide: the 68000's divs.w (the quotient must
+// fit 16 bits), plain C on the host
+static inline int16_t divw(int32_t a, int16_t b) {
+#if defined(__mc68000__) || defined(__m68k__)
+	int32_t r = a;
+	__asm__("divs.w %1,%0" : "+d"(r) : "d"(b));
+	return (int16_t)r;
+#else
+	return (int16_t)(a / b);
+#endif
+}
+
 // ------------------------------------------------------------- the world ---
 #define SCREEN_W 320
 #define PLAY_H 216             // the play area; the HUD (40 lines) is below it
@@ -184,7 +196,7 @@ typedef struct {
 } tCruiser;
 
 enum { GS_TITLE, GS_PLAY, GS_LOST, GS_CLEAR, GS_OVER, GS_VICTORY };
-enum { MSG_NONE, MSG_THEATRE, MSG_FACTORY, MSG_CRUISER, MSG_SUNK, MSG_CRUISER_SUNK };
+enum { MSG_NONE, MSG_THEATRE, MSG_FACTORY, MSG_CRUISER, MSG_SUNK, MSG_CRUISER_SUNK, MSG_RELOAD, MSG_REPAIR };
 extern const char *const g_pTheatreName[3];   // (THEATRES)
 
 typedef struct {
@@ -249,9 +261,15 @@ typedef struct {
 
 // --------------------------------------------------------------- tuning ---
 #define V_MAX 40               // 2.5 px a frame
-#define V_ACCEL 2
+#define V_ACCEL 2              // arcade: toward the stick's velocity
 #define V_DRAG 1
 #define V_BRAKE 3
+// Classic steering's momentum: thrust pushes along the nose, the gunship
+// glides on (turning doesn't change where it's going), the brake stops it
+#define THRUST_SHIFT 4         // thrust closes 1/16 of the gap to full speed along the nose a frame
+#define GLIDE_SHIFT 5          // at speed it loses 1/32 of it a frame...
+#define GLIDE_TAIL 3           // ... and slow, 1 every 4 frames (frame & this): ~2.5 s to rest
+#define BRAKE_SHIFT 3
 #define TURN_FRAMES 4          // frames per heading step (16 steps a turn)
 #define ALT_CRUISE 24
 #define LAND_SPEED 4           // slower than this (1/16 px a frame) to land
@@ -318,7 +336,7 @@ extern const int8_t g_pHeadX[16], g_pHeadY[16];   // unit vectors * 64
 // --------------------------------------------------------------- drawing ---
 // BOBs on PF1 (sizes must match the art: main.c checks at startup)
 enum { BOB_SHADOW, BOB_CARRIER, BOB_SHOT, BOB_BOMB, BOB_BOOM, BOB_PUFF, BOB_RETICLE,
-	BOB_JET, BOB_BOMBER, BOB_BOAT, BOB_CRUISER, BOB_FLAK, BOB_MISSILE, BOB_LOGO, BOB_TYPES };
+	BOB_JET, BOB_BOMBER, BOB_BOAT, BOB_CRUISER, BOB_FLAK, BOB_MISSILE, BOB_LOGO, BOB_POINTER, BOB_TYPES };
 extern const uint16_t g_pBobW[BOB_TYPES];
 extern const uint8_t g_pBobH[BOB_TYPES], g_pBobFrames[BOB_TYPES];
 
@@ -336,12 +354,21 @@ void logicLoadTheatre(tGame *g, const tTheatre *pTh);   // structures, carrier, 
 void logicReticle(const tGame *g, int16_t *pX, int16_t *pY);   // where a bomb would land
 uint8_t logicAlert(const tGame *g);        // 0..5: how hard the enemy is fighting back
 const char *logicRank(uint32_t ulScore);
+// Each theatre is harder than the last (Coral Reach is 1.0's balance)
+uint8_t logicFactoryHp(const tGame *g);    // FACTORY_HP and up: 3, 4, 5 bombs
+uint16_t logicCruiserBuild(const tGame *g);
+uint8_t logicMissileAlert(const tGame *g);
 void logicSetDifficulty(tGame *g, uint8_t ubLevel);   // 0 invincible .. 5
 void logicStartGame(tGame *g);             // from the title: theatre 0 (main.c loads it)
 void logicHitChopper(tGame *g, uint8_t ubDamage);
 void logicStructRepair(tGame *g, tStruct *s, uint8_t ubHp);
 void logicRespawn(tGame *g);               // on the carrier's deck, or the airstrip's helipad
 uint8_t logicTestJump(tGame *g);           // GODMODE only: hover by the next standing factory
+// Home: the carrier, or the airstrip's helipad once it's sunk. Its heading
+// (of 16) and rough distance from the gunship; 0 if there's nowhere.
+uint8_t logicHomeBearing(const tGame *g, uint8_t *pHeading, int16_t *pDist);
+#define DAMAGE_WARN 70         // from here the HUD says go and repair
+int16_t logicDist(int16_t dx, int16_t dy);   // the longer side plus half the shorter
 // enemies.c
 void enemiesUpdate(tGame *g);
 void enemiesReset(tGame *g);

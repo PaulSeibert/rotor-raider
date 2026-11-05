@@ -18,8 +18,9 @@ factories are down. Radar stations send interceptors after you. Bombers go
 for your carrier. Supply boats rebuild damaged factories. In the shipyard a
 cruiser is being built, and when it sails it hunts the carrier.
 
-Three theatres, each harder than the last: **Coral Reach**, **Ember Flats**
-and **Frostline**.
+Three theatres, each harder than the last: **Coral Reach** (a factory
+takes 3 bombs), **Ember Flats** (4, with quicker flak, more planes and a
+faster-built cruiser) and **Frostline** (5, and missiles almost at once).
 
 ## Download
 
@@ -62,6 +63,7 @@ Choose the steering on the title screen with left/right.
 | Input | Classic steering | Arcade steering |
 |---|---|---|
 | Stick | Left/right turn the gunship, up flies forward, down brakes | Push where you want to go: it turns that way and flies |
+| Feel | **Momentum**: off the stick the gunship glides on for a couple of seconds, and turning swings the nose (and the gun) without changing where you're going: slide past a target strafing it, or turn under thrust in a wide arc | Snappy: it stops when you let go |
 | Fire | The chin gun (it strikes the ground ahead, and hits planes) | same |
 | Hold fire (0.3 s) | Drop a bomb | same |
 | Second button (or B) | Drop a bomb at once; then holding fire fires the gun continuously | same |
@@ -72,6 +74,11 @@ Keys: arrows, Space = fire, B = bomb, P = pause, M = music on/off, Esc = quit.
 shows where. You carry 8. **Land** on the carrier's deck (or the friendly
 airstrip's helipad) by hovering slow and still over it: the gunship sets
 down, rides with the ship, repairs and reloads. Any push takes off again.
+
+**Finding the carrier:** when it's off screen, a yellow arrow at the edge of
+the play area points to it (it blinks when you're out of bombs or badly
+damaged), and the arrow after CARRIER on the HUD shows its direction too.
+Once the carrier is sunk, both point to the airstrip.
 
 ## Difficulty
 
@@ -112,6 +119,11 @@ the score bar (SK3) and stays until you change it.
   Everything else (the carrier, planes, ships, flak, bombs, explosions, the
   shadow) is drawn by the blitter on the second playfield, so nothing has to
   restore the terrain.
+- **The chrome title.** The ROTOR RAIDER lettering is drawn in five pens;
+  the copper reloads all five on every one of its 92 lines, so it shades from
+  steel blue through a white horizon to gold and bronze like chrome, with a
+  shine that sweeps down it. The block of copper commands is written once and
+  only the shine's lines change.
 - **The copper.** Each band of islands has its own eight colours, loaded
   where the band starts on screen, always in open sea, so the changes never
   show: about three times the colours on screen. The wave crests glitter,

@@ -47,7 +47,9 @@
 #define DDFSTOP_LORES 0xD0
 #define FETCH_BYTES 42
 #define SWITCH_WAIT_X 0xD8
-#define COP_COUNT 160
+#define COP_COUNT 640           // the title's chrome logo: 6 commands a line for 92 lines
+#define LOGO_Y 6                // the title logo's place and height (art/tools/sprites.py)
+#define LOGO_H 92
 
 // PF1 frame buffers: 48 px of margin left, 64 right; screen (x, y) is
 // buffer (x + FB_X0, y)
@@ -213,6 +215,46 @@ static void duskUpdate(void) {
 	}
 }
 
+static UBYTE s_pLogoShown[2];   // the title logo is in this buffer (logoQueue)
+
+// ---------------------------------------------------------- chrome title ---
+// The title logo's pens 3-7, line by line: steel blue, a white horizon, gold
+// to bronze down each word, a highlight and a shadow made from the face
+// colour; and a shine that sweeps down it every 4 s. Worked out at startup.
+
+static UWORD s_pChrome[LOGO_H][5], s_pChromeShine[LOGO_H][5];
+static ULONG s_pChromeBlock[LOGO_H][6];   // per logo line: its WAIT and 5 MOVEs, ready to copy
+static UBYTE s_pChromeIn[2];                // it's in this buffer's list, in place
+static UBYTE s_pChromeShineAt[2];           // the shine's first line there (0xFF: none)
+
+static UWORD chromeFace(UBYTE ubRow, UBYTE ubTop, UBYTE ubH) {
+	UWORD uwT = (UWORD)(ubRow < ubTop ? 0 : ubRow - ubTop >= ubH ? 15 : ((ubRow - ubTop) * 16) / ubH);   // 0..15
+	if(uwT < 7) return colorMix(0x247, 0x9CE, (UBYTE)(uwT * 2 + 2), 16);
+	if(uwT < 9) return 0xEFF;
+	return colorMix(0xFC6, 0x842, (UBYTE)((uwT - 9) * 2 + 2), 16);
+}
+
+static void chromeCreate(void) {
+	for(UBYTE y = 0; y < LOGO_H; ++y) {
+		// ROTOR: rows 2-36; RAIDER: rows 42-83 (art/tools/sprites.py)
+		UWORD uwFace = y < 39 ? chromeFace(y, 2, 35) : chromeFace(y, 42, 42);
+		UWORD pSet[5] = {
+			colorMix(uwFace, 0x000, 9, 16),       // 3: bevel dark
+			colorMix(0x9AC, 0x113, (UBYTE)(y >> 3), 16),   // 4: the rotor's blur
+			uwFace,                               // 5: the face
+			colorMix(uwFace, 0xFFF, 12, 16),      // 6: glint
+			colorMix(uwFace, 0xFFF, 10, 16),      // 7: bevel light
+		};
+		UWORD uwBeam = (UWORD)(s_pView->ubPosY + LOGO_Y + y);   // (< 255: no line-255 wait here)
+		s_pChromeBlock[y][0] = ((ULONG)((uwBeam << 8) | 1) << 16) | 0xFFFE;
+		for(UBYTE i = 0; i < 5; ++i) {
+			s_pChrome[y][i] = pSet[i];
+			s_pChromeShine[y][i] = colorMix(pSet[i], 0xFFF, 11, 16);
+			s_pChromeBlock[y][1 + i] = ((ULONG)R_COLOR(3 + i) << 16) | pSet[i];
+		}
+	}
+}
+
 // A band's terrain colours: the sea (COLOR00) and PF2's pens (9-15)
 static inline void cwBand(tCw *w, UBYTE ubBand) {
 	const UWORD *pCol = s_pBandShown[ubBand];
@@ -254,21 +296,106 @@ __attribute__((noinline)) static void copperBuild(UBYTE ubBfr) {
 	cwPtr(&sW, R_BPLPT(5), ulTop + 2 * SCROLL_PLANE_BYTES);
 	// The island bands' colours: the band at the top, then each band that
 	// starts on screen (always in open sea), in line order with the wrap
+	// (and on the title, the chrome logo's lines)
 	const tTheatre *pTh = &s_sTheatre;
 	UBYTE b = 0;
 	while(b + 1 < pTh->ubBands && pTh->pBands[b + 1].ubRow * TILE <= g->camY) ++b;
 	cwBand(&sW, b);
-	UBYTE isWrapDone = uwWrap >= PLAY_H;
+	WORD pBandLine[BANDS_MAX];
+	UBYTE ubBands = 0;
 	for(++b; b < pTh->ubBands; ++b) {
 		WORD wLine = (WORD)(pTh->pBands[b].ubRow * TILE - g->camY);
 		if(wLine >= PLAY_H) break;
+		pBandLine[ubBands++] = wLine;
+	}
+	UBYTE ubBand = (UBYTE)(b - ubBands);
+	UBYTE isClear = uwWrap > LOGO_Y + LOGO_H && !(ubBands && pBandLine[0] <= LOGO_Y + LOGO_H);
+	if(g->state == GS_TITLE && s_pLogoShown[ubBfr] && isClear) {
+		// The chrome logo's block sits at the same place in this buffer's
+		// list every picture (what comes before it has a fixed length): it's
+		// written once; after that only its shine lines change.
+		ULONG *pDst = (ULONG *)sW.p;
+		if(!s_pChromeIn[ubBfr]) {
+			s_pChromeIn[ubBfr] = 1;
+			for(UBYTE r = 0; r < LOGO_H; ++r)
+				for(UBYTE i = 0; i < 6; ++i) pDst[r * 6 + i] = s_pChromeBlock[r][i];
+			s_pChromeShineAt[ubBfr] = 0xFF;
+		}
+		// the shine: put back the last one, then the new one
+		WORD wShine = (WORD)(((g->titleFrame >> 1) & 127) - 12);
+		UBYTE ubOld = s_pChromeShineAt[ubBfr];
+		for(UBYTE k = 0; k < 4 && ubOld != 0xFF; ++k) {
+			UBYTE r = (UBYTE)(ubOld + k);
+			if(r < LOGO_H) for(UBYTE i = 0; i < 5; ++i) ((UWORD *)&pDst[r * 6 + 1 + i])[1] = s_pChrome[r][i];
+		}
+		s_pChromeShineAt[ubBfr] = 0xFF;
+		if(wShine >= -3 && wShine < LOGO_H) {
+			for(UBYTE k = 0; k < 4; ++k) {
+				WORD r = (WORD)(wShine + k);
+				if(r >= 0 && r < LOGO_H) for(UBYTE i = 0; i < 5; ++i) ((UWORD *)&pDst[r * 6 + 1 + i])[1] = s_pChromeShine[r][i];
+			}
+			s_pChromeShineAt[ubBfr] = (UBYTE)(wShine < 0 ? 0 : wShine);
+		}
+		sW.p = (UWORD *)(pDst + LOGO_H * 6);
+		cwWait(&sW, LOGO_Y + LOGO_H, 0);
+		for(UBYTE i = 3; i < 8; ++i) cwMove(&sW, R_COLOR(i), s_pColors[i]);
+	}
+	else if(g->state == GS_TITLE && s_pLogoShown[ubBfr]) {
+		s_pChromeIn[ubBfr] = 0;   // (the block will be written again)
+		// the chrome logo: its lines' colours, made at startup, copied in;
+		// events before it first, those inside spliced in after their line
+		while(ubBands && pBandLine[0] < LOGO_Y) {
+			cwWait(&sW, (UWORD)pBandLine[0], 0);
+			cwBand(&sW, ubBand++);
+			for(UBYTE k = 1; k < ubBands; ++k) pBandLine[k - 1] = pBandLine[k];
+			--ubBands;
+		}
+		if(uwWrap < LOGO_Y) {
+			cwWrap(&sW, uwWrap, ulWrapAddr);
+			uwWrap = PLAY_H;
+		}
+		WORD wShine = (WORD)(((g->titleFrame >> 1) & 127) - 12);
+		ULONG *pDst = (ULONG *)sW.p;
+		for(UBYTE r = 0; r < LOGO_H; ++r) {
+			const ULONG *pSrc = s_pChromeBlock[r];
+			pDst[0] = pSrc[0]; pDst[1] = pSrc[1]; pDst[2] = pSrc[2];
+			pDst[3] = pSrc[3]; pDst[4] = pSrc[4]; pDst[5] = pSrc[5];
+			WORD d = (WORD)(r - wShine);
+			if(d >= 0 && d < 4) {
+				const UWORD *pShine = s_pChromeShine[r];
+				for(UBYTE i = 0; i < 5; ++i) ((UWORD *)&pDst[1 + i])[1] = pShine[i];
+			}
+			pDst += 6;
+			UWORD uwLine = (UWORD)(LOGO_Y + r);
+			if(uwLine == uwWrap || (ubBands && pBandLine[0] == (WORD)uwLine)) {
+				sW.p = (UWORD *)pDst;
+				if(uwLine == uwWrap) {
+					cwPtr(&sW, R_BPLPT(1), ulWrapAddr);
+					cwPtr(&sW, R_BPLPT(3), ulWrapAddr + SCROLL_PLANE_BYTES);
+					cwPtr(&sW, R_BPLPT(5), ulWrapAddr + 2 * SCROLL_PLANE_BYTES);
+					uwWrap = PLAY_H;
+				}
+				if(ubBands && pBandLine[0] == (WORD)uwLine) {
+					cwBand(&sW, ubBand++);
+					for(UBYTE k = 1; k < ubBands; ++k) pBandLine[k - 1] = pBandLine[k];
+					--ubBands;
+				}
+				pDst = (ULONG *)sW.p;
+			}
+		}
+		sW.p = (UWORD *)pDst;
+		cwWait(&sW, LOGO_Y + LOGO_H, 0);
+		for(UBYTE i = 3; i < 8; ++i) cwMove(&sW, R_COLOR(i), s_pColors[i]);
+	}
+	UBYTE isWrapDone = uwWrap >= PLAY_H;
+	for(UBYTE k = 0; k < ubBands; ++k) {
+		WORD wLine = pBandLine[k];
 		if(!isWrapDone && (WORD)uwWrap <= wLine) {
 			cwWrap(&sW, uwWrap, ulWrapAddr);
 			isWrapDone = 1;
 		}
-		if(!isWrapDone && (WORD)uwWrap == wLine) isWrapDone = 1;
 		cwWait(&sW, (UWORD)wLine, 0);
-		cwBand(&sW, b);
+		cwBand(&sW, ubBand++);
 	}
 	if(!isWrapDone) cwWrap(&sW, uwWrap, ulWrapAddr);
 	// the HUD: 3 planes from the end of the play area's last line
@@ -282,6 +409,35 @@ __attribute__((noinline)) static void copperBuild(UBYTE ubBfr) {
 	cwMove(&sW, R_COLOR(0), HUD_COLOR);
 	cwEnd(&sW);
 	s_uwCopUsed = (UWORD)((sW.p - pFirst) >> 1);
+}
+
+// The title camera's height, nudged (down, 8 px at a time) so that over the
+// whole pan no island band starts and the ring doesn't wrap on the logo's
+// lines: then its copper block stays put (written once a buffer)
+static void titleCamFit(void) {
+	tGame *g = &s_sGame;
+	WORD wMaxY = (WORD)(g->map.uwH * TILE - PLAY_H);
+	WORD wCol0 = (WORD)((((g->titleX0 - 1) >> 4) * 2) / SCROLL_BW);
+	WORD wCol1 = (WORD)((((g->titleX0 + 600 - 1) >> 4) * 2) / SCROLL_BW) + 1;
+	for(UWORD k = 0; k < SCROLL_ROWS / 8 + 1; ++k) {
+		WORD y = (WORD)(g->titleY0 + k * 8);
+		if(y > wMaxY) y = (WORD)(wMaxY - (WORD)(k * 8 - (wMaxY - g->titleY0)));
+		if(y < 0) break;
+		UBYTE isOk = 1;
+		for(UBYTE b = 1; b < s_sTheatre.ubBands; ++b) {
+			WORD wLine = (WORD)(s_sTheatre.pBands[b].ubRow * TILE - y);
+			if(wLine >= 0 && wLine <= LOGO_Y + LOGO_H + 2) isOk = 0;
+		}
+		for(WORD d = wCol0; d <= wCol1 && isOk; ++d) {
+			WORD r = (WORD)(y + d);
+			while(r >= SCROLL_ROWS) r = (WORD)(r - SCROLL_ROWS);
+			if(SCROLL_ROWS - r <= LOGO_Y + LOGO_H + 2) isOk = 0;
+		}
+		if(isOk) {
+			g->titleY0 = y;
+			return;
+		}
+	}
 }
 
 // ----------------------------------------------------------- blit queue ---
@@ -357,14 +513,13 @@ __attribute__((noinline)) static void erasesQueue(UBYTE ubBfr) {
 // The title's logo: blitted once into each buffer while the title shows (no
 // erase and redraw each picture: a 288 x 32 cookie-cut is ~40 raster lines
 // of the blitter), cleared once when it goes. Nothing crosses it there.
-#define LOGO_Y 22
-static UBYTE s_pLogoShown[2];
 static tAgkBlitArea s_pLogoArea[2];
 
 static void logoQueue(UBYTE ubBfr) {
 	UBYTE isTitle = s_sGame.state == GS_TITLE;
 	if(isTitle == s_pLogoShown[ubBfr]) return;
 	s_pLogoShown[ubBfr] = isTitle;
+	s_pChromeIn[ubBfr] = 0;
 	if(!isTitle) {
 		agkBlitClear(agkBlitqSlot(), &s_pLogoArea[ubBfr]);
 		agkBlitqPush();
@@ -482,6 +637,7 @@ __attribute__((noinline)) static void playSounds(UBYTE ubStateBefore) {
 	UWORD e = g->events;
 	if(g->state != ubStateBefore) {
 		musicFor(g->state);
+		if(g->state == GS_TITLE) titleCamFit();
 		if(ubStateBefore == GS_TITLE && g->state == GS_PLAY) soundPlay(SOUND_SFX_START);
 	}
 	if(e & EV_CRASH) soundPlay(SOUND_SFX_CRASH);
@@ -502,19 +658,30 @@ __attribute__((noinline)) static void playSounds(UBYTE ubStateBefore) {
 // Rescue. Lines are "typed" a few letters a picture: text is slow to draw.
 
 static tAgkFont s_sFont;
-#define FONT_CHARS AGK_FONT8_CHARS "(),@"
-static unsigned char s_pFontRows[AGK_FONT8_COUNT + 4][8];
-static const unsigned char s_pFontExtra[4][8] = {
+// and 8 arrows (written 'a'-'h': north, north-east, ... clockwise): the HUD's
+// compass to home
+#define FONT_CHARS AGK_FONT8_CHARS "(),@abcdefgh"
+#define FONT_EXTRA 12
+static unsigned char s_pFontRows[AGK_FONT8_COUNT + FONT_EXTRA][8];
+static const unsigned char s_pFontExtra[FONT_EXTRA][8] = {
 	{0x08, 0x10, 0x20, 0x20, 0x20, 0x10, 0x08, 0x00},   // (
 	{0x20, 0x10, 0x08, 0x08, 0x08, 0x10, 0x20, 0x00},   // )
 	{0x00, 0x00, 0x00, 0x00, 0x00, 0x18, 0x08, 0x10},   // ,
 	{0x3C, 0x42, 0x9A, 0xA2, 0x9A, 0x42, 0x3C, 0x00},   // (c)
+	{0x10, 0x38, 0x7C, 0x10, 0x10, 0x10, 0x10, 0x00},   // a: north
+	{0x3C, 0x0C, 0x14, 0x24, 0x40, 0x00, 0x00, 0x00},   // b: north-east
+	{0x00, 0x08, 0x04, 0x7E, 0x04, 0x08, 0x00, 0x00},   // c: east
+	{0x00, 0x00, 0x40, 0x24, 0x14, 0x0C, 0x3C, 0x00},   // d: south-east
+	{0x10, 0x10, 0x10, 0x10, 0x7C, 0x38, 0x10, 0x00},   // e: south
+	{0x00, 0x00, 0x02, 0x24, 0x28, 0x30, 0x3C, 0x00},   // f: south-west
+	{0x00, 0x10, 0x20, 0x7E, 0x20, 0x10, 0x00, 0x00},   // g: west
+	{0x3C, 0x30, 0x28, 0x24, 0x02, 0x00, 0x00, 0x00},   // h: north-west
 };
 
 static void fontInit(void) {
 	for(UBYTE c = 0; c < AGK_FONT8_COUNT; ++c)
 		for(UBYTE r = 0; r < 8; ++r) s_pFontRows[c][r] = g_pAgkFont8[c][r];
-	for(UBYTE c = 0; c < 4; ++c)
+	for(UBYTE c = 0; c < FONT_EXTRA; ++c)
 		for(UBYTE r = 0; r < 8; ++r) s_pFontRows[AGK_FONT8_COUNT + c][r] = s_pFontExtra[c][r];
 	agkFontInit(&s_sFont, (const unsigned char (*)[8])s_pFontRows, FONT_CHARS);
 }
@@ -543,7 +710,7 @@ static UBYTE textType(tAgkText *pText, char *pStage, const char *szTarget, UBYTE
 #define MSG_LINES 6
 #define MSG_LEN 40
 #define MSG_TYPE_PER_FRAME 3
-static const UBYTE s_pMsgY[MSG_LINES] = {64, 76, 100, 112, 140, 168};
+static const UBYTE s_pMsgY[MSG_LINES] = {104, 116, 136, 148, 170, 190};
 static tAgkText s_pMsg[2][MSG_LINES];
 static char s_pMsgStage[2][MSG_LINES][MSG_LEN + 1];
 static ULONG s_pMsgCover[2][MSG_LINES][2];  // columns (bits) this buffer's BOBs covered last time
@@ -725,7 +892,9 @@ static const char *playMessage(const tGame *g, char *szOut) {
 	switch(g->msg) {
 		case MSG_THEATRE:
 			strCat(szOut, &n, g_pTheatreName[g->theatre]);
-			strCat(szOut, &n, ": BOMB 6 FACTORIES");
+			strCat(szOut, &n, ": ");
+			szOut[n++] = (char)('0' + logicFactoryHp(g) / BOMB_DAMAGE); szOut[n] = 0;
+			strCat(szOut, &n, " BOMBS A FACTORY");
 			break;
 		case MSG_FACTORY:
 			strCat(szOut, &n, "FACTORY DESTROYED - ");
@@ -736,12 +905,26 @@ static const char *playMessage(const tGame *g, char *szOut) {
 			strCat(szOut, &n, "WARNING: CRUISER ATTACKING THE CARRIER");
 			break;
 		case MSG_SUNK:
-			strCat(szOut, &n, "THE CARRIER IS SUNK - USE THE AIRSTRIP");
+			strCat(szOut, &n, "CARRIER SUNK: USE THE AIRSTRIP");
+			break;
+		case MSG_RELOAD:
+			strCat(szOut, &n, "BOMBS GONE: RETURN TO THE CARRIER");
+			break;
+		case MSG_REPAIR:
+			strCat(szOut, &n, "DAMAGE HIGH: REPAIR AT THE CARRIER");
 			break;
 		default:
 			break;
 	}
 	return szOut;
+}
+
+// The HUD compass: 1-8 (north, north-east, ... clockwise) toward home, 0 none
+static UBYTE homeArrow(const tGame *g) {
+	UBYTE h;
+	WORD d;
+	if(g->state != GS_PLAY || !logicHomeBearing(g, &h, &d) || d < 48) return 0;   // (there: none)
+	return (UBYTE)((((h + 1) >> 1) & 7) + 1);
 }
 
 // ------------------------------------------------------------------ HUD ---
@@ -888,7 +1071,7 @@ __attribute__((noinline)) static void hudUpdate(UBYTE ubBfr) {
 			(g->msg == MSG_FACTORY ? g->factoriesLeft << 13 : 0)),
 		(UWORD)(g->lives),
 		(UWORD)(g->chop.bombs | g->difficulty << 4),
-		(UWORD)(g->factoriesLeft),
+		(UWORD)(g->factoriesLeft | homeArrow(g) << 4),
 	};
 	UBYTE isScore = g->score != pScore[ubBfr];
 	for(UBYTE l = 0; l < HUD_LINES; ++l) {
@@ -924,6 +1107,8 @@ __attribute__((noinline)) static void hudUpdate(UBYTE ubBfr) {
 			const char *szT = "CARRIER        YARD         FACT 6";
 			for(UBYTE i = 0; szT[i]; ++i) szLine[i] = szT[i];
 			szLine[33] = (char)('0' + g->factoriesLeft);
+			UBYTE ubArrow = homeArrow(g);
+			szLine[7] = ubArrow ? (char)('a' + ubArrow - 1) : ' ';
 		}
 		char *pT = s_pHudTarget[ubBfr][l];
 		for(UBYTE c = 0; c <= HUD_LEN; ++c) pT[c] = szLine[c];
@@ -948,7 +1133,7 @@ __attribute__((noinline)) static void hudUpdate(UBYTE ubBfr) {
 		pShip[ubBfr] = g->carrier.hp;
 		hudBar(ubBfr, 8, 33, g->carrier.hp, CARRIER_HP, 6);
 	}
-	UBYTE ubYard = g->cruiser.active || g->cruiser.sunk ? 48 : (UBYTE)mulDiv(g->uwBuild, 48, CRUISER_BUILD);
+	UBYTE ubYard = g->cruiser.active || g->cruiser.sunk ? 48 : (UBYTE)mulDiv(g->uwBuild, 48, logicCruiserBuild(g));
 	if(ubYard != pYard[ubBfr]) {
 		pYard[ubBfr] = ubYard;
 		hudBar(ubBfr, 20, 33, ubYard, 48, g->cruiser.sunk ? 3 : 5);
@@ -1039,6 +1224,7 @@ void genericCreate(void) {
 	s_pMiniChip = memAllocChipClear(MINI_CHIP_BYTES);
 	chopperCreate();
 	bobsCreate();
+	chromeCreate();
 	msgInit();
 	paletteSet();
 
@@ -1060,6 +1246,7 @@ void genericCreate(void) {
 	s_sGame.state = GS_TITLE;
 	s_sGame.titleX0 = s_sGame.camX;
 	s_sGame.titleY0 = (int16_t)(s_sGame.camY > 140 ? s_sGame.camY - 140 : 0);
+	titleCamFit();
 	s_sGame.camY = s_sGame.titleY0;   // already there: nothing to scroll in
 	s_sGame.msg = MSG_NONE;
 	miniLand(&s_sGame.map);
@@ -1113,7 +1300,7 @@ static void theatreLoad(UBYTE ubTheatre) {
 	scrollReset(&s_sGame.map, s_sGame.camX, s_sGame.camY);
 	agkState("theatre loaded", ubTheatre);
 	agkEnd();
-	s_ubSkipFrames = 2;   // (its first pictures lay everything out)
+	s_ubSkipFrames = 3;   // (its first pictures lay everything out, and clear the title)
 	s_uwDuskClock = 0;
 	s_ubDusk = 0xFF;
 }

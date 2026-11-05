@@ -85,13 +85,47 @@ static void testSameSpeedEveryWay(void) {
 	}
 }
 
-static void testClassicDriftsToAStop(void) {
+static void testClassicGlidesThenRests(void) {
 	newGame(STEER_CLASSIC, 1000, 1000);
 	g.chop.heading = 8;
 	step((tInput){.dy = -1}, 40);
-	CHECK(g.chop.vy > 30);
-	step(NONE, 60);
-	CHECK(g.chop.vy == 0 && g.chop.vx == 0);
+	CHECK(g.chop.vy == V_MAX);
+	step(NONE, 40);
+	CHECK(g.chop.vy > 10);                    // still gliding south
+	int16_t y = g.chop.y;
+	step(NONE, 200);
+	CHECK(g.chop.vy == 0 && g.chop.vx == 0);  // at rest
+	CHECK(g.chop.y > y + 40);                 // it glid a good way
+}
+
+static void testClassicTurnWhileGliding(void) {
+	// flat out east, then off the stick and turn north: still going east
+	newGame(STEER_CLASSIC, 1000, 1000);
+	g.chop.heading = 4;
+	step((tInput){.dy = -1}, 40);
+	step((tInput){.dx = -1}, TURN_FRAMES * 4);
+	CHECK(g.chop.heading == 0);
+	CHECK(g.chop.vx > 25 && g.chop.vy == 0);  // the nose turned, the motion didn't
+	// thrust now pushes north on top of the slide east
+	step((tInput){.dy = -1}, 10);
+	CHECK(g.chop.vx > 10 && g.chop.vy < -10);
+}
+
+static void testClassicFullSpeedIsExact(void) {
+	newGame(STEER_CLASSIC, 1000, 1000);
+	g.chop.heading = 4;
+	step((tInput){.dy = -1}, 80);
+	CHECK(g.chop.vx == V_MAX && g.chop.vy == 0);
+	newGame(STEER_CLASSIC, 1000, 1000);
+	g.chop.heading = 6;                       // diagonal: the same speed along it
+	step((tInput){.dy = -1}, 120);
+	CHECK(g.chop.vx == 28 && g.chop.vy == 28);
+	// sliding north, then thrusting south-west: it ends up flying south-west
+	newGame(STEER_CLASSIC, 1000, 1000);
+	g.chop.vy = -V_MAX;
+	g.chop.heading = 10;
+	step((tInput){.dy = -1}, 200);
+	CHECK(g.chop.vx == -28 && g.chop.vy == 28);
 }
 
 static void testArcadeTurnsTowardStickAndFlies(void) {
@@ -648,13 +682,66 @@ static void testTestJumpOnlyInGodmode(void) {
 	CHECK(g.pStructs[0].hp == FACTORY_HP - BOMB_DAMAGE);   // the bomb lands on it
 }
 
+static void testLaterTheatresAreHarder(void) {
+	newTheatre(800, 300);
+	CHECK(logicFactoryHp(&g) == FACTORY_HP && logicCruiserBuild(&g) == CRUISER_BUILD);
+	CHECK(logicMissileAlert(&g) == MISSILE_ALERT);    // Coral Reach: as in 1.0
+	g.theatre = 1;
+	logicLoadTheatre(&g, &s_sTh);
+	CHECK(g.pStructs[0].hp == FACTORY_HP + BOMB_DAMAGE);   // four bombs
+	CHECK(logicCruiserBuild(&g) < CRUISER_BUILD && logicMissileAlert(&g) < MISSILE_ALERT);
+	g.theatre = 2;
+	logicLoadTheatre(&g, &s_sTh);
+	CHECK(g.pStructs[0].hp == FACTORY_HP + 2 * BOMB_DAMAGE); // five
+	// a boat's delivery mends up to the theatre's strength
+	g.pStructs[0].hp = 30;
+	logicStructRepair(&g, &g.pStructs[0], 20);
+	CHECK(g.pStructs[0].hp == FACTORY_HP + 2 * BOMB_DAMAGE);
+}
+
+static void testHomePointer(void) {
+	newTheatre(100, 100);                     // carrier at (328, 968): far south-east
+	uint8_t h;
+	int16_t d;
+	CHECK(logicHomeBearing(&g, &h, &d));
+	CHECK(h == logicHeadingTo(328 - 100, 968 - 100) && d > 800);
+	tDraw pDraw[DRAW_MAX];
+	g.camX = 0; g.camY = 0;
+	uint8_t n = logicDraw(&g, pDraw), isFound = 0;
+	for(uint8_t i = 0; i < n; ++i) {
+		if(pDraw[i].bob != BOB_POINTER) continue;
+		isFound = 1;
+		// on the screen's edge box, toward the carrier (down, a little right)
+		CHECK(pDraw[i].y == PLAY_H - 12 - 8);
+		CHECK(pDraw[i].x > SCREEN_W / 2 - 8 && pDraw[i].x < SCREEN_W - 12);
+	}
+	CHECK(isFound);
+	// on screen: no pointer
+	g.camX = (int16_t)(g.carrier.x - SCREEN_W / 2); g.camY = (int16_t)(g.carrier.y - PLAY_H / 2);
+	n = logicDraw(&g, pDraw);
+	for(uint8_t i = 0; i < n; ++i) CHECK(pDraw[i].bob != BOB_POINTER);
+}
+
+static void testReloadAndRepairPrompts(void) {
+	newTheatre(500, 900);
+	g.chop.bombs = 1;
+	step((tInput){.fire2 = 1}, 1);
+	CHECK(g.msg == MSG_RELOAD);
+	newTheatre(500, 900);
+	g.uwJetTimer = g.uwBomberTimer = g.uwBoatTimer = 60000;
+	logicHitChopper(&g, DAMAGE_WARN);
+	CHECK(g.msg == MSG_REPAIR);
+}
+
 int main(void) {
 	testHeadingTable();
 	testStickToHeading();
 	testTurnShorterWay();
 	testClassicRotatesAndThrusts();
 	testSameSpeedEveryWay();
-	testClassicDriftsToAStop();
+	testClassicGlidesThenRests();
+	testClassicTurnWhileGliding();
+	testClassicFullSpeedIsExact();
 	testArcadeTurnsTowardStickAndFlies();
 	testWorldEdgesHold();
 	testCameraFollowsWithinMapAndLimitsStep();
@@ -693,6 +780,9 @@ int main(void) {
 	testClearTheatreThenNext();
 	testTitleStartsAGame();
 	testTestJumpOnlyInGodmode();
+	testLaterTheatresAreHarder();
+	testHomePointer();
+	testReloadAndRepairPrompts();
 	if(s_failures) {
 		printf("%d check(s) failed\n", s_failures);
 		return 1;

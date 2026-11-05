@@ -5,13 +5,13 @@
 
 const uint16_t g_pBobW[BOB_TYPES] = {[BOB_SHADOW] = 32, [BOB_CARRIER] = 96, [BOB_SHOT] = 16,
 	[BOB_BOMB] = 16, [BOB_BOOM] = 32, [BOB_PUFF] = 16, [BOB_RETICLE] = 16, [BOB_JET] = 32,
-	[BOB_BOMBER] = 32, [BOB_BOAT] = 16, [BOB_CRUISER] = 96, [BOB_FLAK] = 16, [BOB_MISSILE] = 16, [BOB_LOGO] = 288};
+	[BOB_BOMBER] = 32, [BOB_BOAT] = 16, [BOB_CRUISER] = 96, [BOB_FLAK] = 16, [BOB_MISSILE] = 16, [BOB_LOGO] = 304, [BOB_POINTER] = 16};
 const uint8_t g_pBobH[BOB_TYPES] = {[BOB_SHADOW] = 32, [BOB_CARRIER] = 32, [BOB_SHOT] = 4,
 	[BOB_BOMB] = 8, [BOB_BOOM] = 32, [BOB_PUFF] = 16, [BOB_RETICLE] = 16, [BOB_JET] = 32,
-	[BOB_BOMBER] = 32, [BOB_BOAT] = 16, [BOB_CRUISER] = 32, [BOB_FLAK] = 4, [BOB_MISSILE] = 16, [BOB_LOGO] = 32};
+	[BOB_BOMBER] = 32, [BOB_BOAT] = 16, [BOB_CRUISER] = 32, [BOB_FLAK] = 4, [BOB_MISSILE] = 16, [BOB_LOGO] = 92, [BOB_POINTER] = 16};
 const uint8_t g_pBobFrames[BOB_TYPES] = {[BOB_SHADOW] = 16, [BOB_CARRIER] = 4, [BOB_SHOT] = 1,
 	[BOB_BOMB] = 1, [BOB_BOOM] = 6, [BOB_PUFF] = 4, [BOB_RETICLE] = 2, [BOB_JET] = 8,
-	[BOB_BOMBER] = 8, [BOB_BOAT] = 8, [BOB_CRUISER] = 2, [BOB_FLAK] = 1, [BOB_MISSILE] = 8, [BOB_LOGO] = 1};
+	[BOB_BOMBER] = 8, [BOB_BOAT] = 8, [BOB_CRUISER] = 2, [BOB_FLAK] = 1, [BOB_MISSILE] = 8, [BOB_LOGO] = 1, [BOB_POINTER] = 8};
 
 const char *const g_pTheatreName[THEATRES] = {"CORAL REACH", "EMBER FLATS", "FROSTLINE"};
 
@@ -20,6 +20,16 @@ const char *logicRank(uint32_t ulScore) {
 		ulScore >= 25000 ? "SQUADRON LEADER" : ulScore >= 12000 ? "FLIGHT LIEUTENANT" :
 		ulScore >= 5000 ? "PILOT OFFICER" : "CADET";
 }
+
+// Per theatre: Coral Reach, Ember Flats, Frostline
+static const uint8_t s_pFactoryHp[THEATRES] = {FACTORY_HP, FACTORY_HP + BOMB_DAMAGE, FACTORY_HP + 2 * BOMB_DAMAGE};
+static const uint16_t s_pCruiserBuild[THEATRES] = {CRUISER_BUILD, 7500, 6000};
+static const uint8_t s_pMissileAlert[THEATRES] = {MISSILE_ALERT, 2, 1};
+
+static inline uint8_t theatreIx(const tGame *g) { return g->theatre < THEATRES ? g->theatre : THEATRES - 1; }
+uint8_t logicFactoryHp(const tGame *g) { return s_pFactoryHp[theatreIx(g)]; }
+uint16_t logicCruiserBuild(const tGame *g) { return s_pCruiserBuild[theatreIx(g)]; }
+uint8_t logicMissileAlert(const tGame *g) { return s_pMissileAlert[theatreIx(g)]; }
 
 static void say(tGame *g, uint8_t ubMsg, uint16_t uwFrames) {
 	g->msg = ubMsg;
@@ -166,7 +176,7 @@ void logicLoadTheatre(tGame *g, const tTheatre *pTh) {
 		s->stage = 0;
 		s->timer = 0;
 		s->link = o->a;
-		s->hp = o->type == OBJ_FACTORY ? FACTORY_HP : o->type == OBJ_TURRET ? TURRET_HP :
+		s->hp = o->type == OBJ_FACTORY ? logicFactoryHp(g) : o->type == OBJ_TURRET ? TURRET_HP :
 			o->type == OBJ_RADAR ? RADAR_HP : 1;
 		if(o->type == OBJ_PIER) {
 			// a pier keeps its way out to sea (dx, dy as signed bytes) in stage and timer
@@ -253,8 +263,9 @@ static tStruct *structAt(tGame *g, int16_t x, int16_t y, int16_t r) {
 
 void logicStructRepair(tGame *g, tStruct *s, uint8_t ubHp) {
 	if(s->type != OBJ_FACTORY || !s->hp) return;
-	s->hp = s->hp + ubHp >= FACTORY_HP ? FACTORY_HP : (uint8_t)(s->hp + ubHp);
-	if(s->hp == FACTORY_HP && s->stage) {
+	uint8_t ubMax = logicFactoryHp(g);
+	s->hp = s->hp + ubHp >= ubMax ? ubMax : (uint8_t)(s->hp + ubHp);
+	if(s->hp == ubMax && s->stage) {
 		s->stage = 0;
 		structTiles(g, s);
 	}
@@ -343,6 +354,7 @@ static void bombDrop(tGame *g) {
 		s->alt = c->alt;
 		--c->bombs;
 		g->events |= EV_BOMB;
+		if(!c->bombs) say(g, MSG_RELOAD, 250);
 		return;
 	}
 }
@@ -429,7 +441,7 @@ __attribute__((noinline)) static void structsUpdate(tGame *g) {
 	if(g->frame & 3) return;
 	for(uint8_t i = 0; i < g->ubStructs; ++i) {
 		tStruct *s = &g->pStructs[i];
-		if(s->type != OBJ_FACTORY || !s->hp || s->hp >= FACTORY_HP) continue;
+		if(s->type != OBJ_FACTORY || !s->hp || s->hp >= logicFactoryHp(g)) continue;
 		s->timer = (uint16_t)(s->timer + 4);
 		if(s->timer < FACTORY_REPAIR) continue;
 		s->timer = 0;
@@ -524,6 +536,53 @@ static uint8_t chopperDeck(tGame *g, uint8_t isPush) {
 	return 1;
 }
 
+// v / 2^n, rounded toward zero (the same both ways)
+static inline int16_t shrs(int16_t v, uint8_t n) {
+	return v < 0 ? (int16_t)-((-v) >> n) : (int16_t)(v >> n);
+}
+
+static inline int16_t absw16(int16_t v) { return v < 0 ? (int16_t)-v : v; }
+
+// toward zero by up to d (d >= 0)
+static inline int16_t toward0(int16_t v, int16_t d) {
+	if(v > 0) return v > d ? (int16_t)(v - d) : 0;
+	if(v < 0) return -v > d ? (int16_t)(v + d) : 0;
+	return 0;
+}
+
+// a step of 1/2^n of the way from v to t, at least 1
+static inline int16_t pull(int16_t v, int16_t t, uint8_t n) {
+	int16_t d = (int16_t)(t - v), s = shrs(d, n);
+	if(!s && d) s = d > 0 ? 1 : -1;
+	return (int16_t)(v + s);
+}
+
+// Classic steering, with momentum: thrust pulls the velocity a sixteenth of
+// the way a frame toward full speed along the nose, so turning under thrust
+// carves a wide arc; off the stick the gunship glides on, slowing gently
+// (turning then doesn't change where it's going); down brakes.
+static void classicMomentum(tGame *g, uint8_t isThrust, uint8_t isBrake) {
+	tChopper *c = &g->chop;
+	if(isThrust) {
+		// (rounded to nearest, so west is as fast as east)
+		int16_t tvx = (int16_t)((g_pHeadX[c->heading] * V_MAX + 32) >> 6);
+		int16_t tvy = (int16_t)((g_pHeadY[c->heading] * V_MAX + 32) >> 6);
+		c->vx = pull(c->vx, tvx, THRUST_SHIFT);
+		c->vy = pull(c->vy, tvy, THRUST_SHIFT);
+		return;
+	}
+	if(isBrake) {
+		c->vx = toward0(c->vx, (int16_t)((absw16(c->vx) >> BRAKE_SHIFT) + 1));
+		c->vy = toward0(c->vy, (int16_t)((absw16(c->vy) >> BRAKE_SHIFT) + 1));
+		return;
+	}
+	// the glide: a share of the speed, at least 1 every few frames
+	int16_t wTail = !(g->frame & GLIDE_TAIL);
+	int16_t dx = (int16_t)(absw16(c->vx) >> GLIDE_SHIFT), dy = (int16_t)(absw16(c->vy) >> GLIDE_SHIFT);
+	c->vx = toward0(c->vx, dx ? dx : wTail);
+	c->vy = toward0(c->vy, dy ? dy : wTail);
+}
+
 void logicChopperUpdate(tGame *g, const tInput *pIn) {
 	tChopper *c = &g->chop;
 	int8_t wTurn = 0;
@@ -555,16 +614,19 @@ void logicChopperUpdate(tGame *g, const tInput *pIn) {
 	}
 	if(!wTurn) c->turnTimer = 0;   // the next push turns at once
 
-	int16_t tvx = 0, tvy = 0;
-	uint8_t ubStep = isBrake ? V_BRAKE : V_DRAG;
-	if(isThrust) {
-		// (rounded to nearest, so west is as fast as east)
-		tvx = (int16_t)((g_pHeadX[c->heading] * V_MAX + 32) >> 6);
-		tvy = (int16_t)((g_pHeadY[c->heading] * V_MAX + 32) >> 6);
-		ubStep = V_ACCEL;
+	if(g->steer == STEER_CLASSIC) classicMomentum(g, isThrust, isBrake);
+	else {
+		int16_t tvx = 0, tvy = 0;
+		uint8_t ubStep = V_DRAG;
+		if(isThrust) {
+			// (rounded to nearest, so west is as fast as east)
+			tvx = (int16_t)((g_pHeadX[c->heading] * V_MAX + 32) >> 6);
+			tvy = (int16_t)((g_pHeadY[c->heading] * V_MAX + 32) >> 6);
+			ubStep = V_ACCEL;
+		}
+		c->vx = approach(c->vx, tvx, ubStep);
+		c->vy = approach(c->vy, tvy, ubStep);
 	}
-	c->vx = approach(c->vx, tvx, ubStep);
-	c->vy = approach(c->vy, tvy, ubStep);
 	subStep(&c->x, c->vx, &c->fx);
 	subStep(&c->y, c->vy, &c->fy);
 	int16_t wMaxX = (int16_t)(g->map.uwW * TILE - 16), wMaxY = (int16_t)(g->map.uwH * TILE - 16);
@@ -622,6 +684,33 @@ uint8_t logicTestJump(tGame *g) {
 	return 0;
 }
 
+// ------------------------------------------------------------------ home ---
+
+static uint8_t homeAt(const tGame *g, int16_t *pX, int16_t *pY) {
+	if(g->carrier.hp) {
+		*pX = g->carrier.x;
+		*pY = g->carrier.y;
+		return 1;
+	}
+	for(uint8_t i = 0; i < g->ubStructs; ++i) {
+		if(g->pStructs[i].type == OBJ_AIRSTRIP) {
+			*pX = (int16_t)(g->pStructs[i].tx * TILE + 8);
+			*pY = (int16_t)(g->pStructs[i].ty * TILE + 8);
+			return 1;
+		}
+	}
+	return 0;
+}
+
+uint8_t logicHomeBearing(const tGame *g, uint8_t *pHeading, int16_t *pDist) {
+	int16_t x, y;
+	if(!homeAt(g, &x, &y)) return 0;
+	int16_t dx = (int16_t)(x - g->chop.x), dy = (int16_t)(y - g->chop.y);
+	*pHeading = logicHeadingTo(dx, dy);
+	*pDist = logicDist(dx, dy);
+	return 1;
+}
+
 // ------------------------------------------------------------ the gunship ---
 
 void logicHitChopper(tGame *g, uint8_t ubDamage) {
@@ -629,7 +718,9 @@ void logicHitChopper(tGame *g, uint8_t ubDamage) {
 	if(g->state != GS_PLAY || c->crashed) return;
 	g->events |= EV_HIT;
 	if(g->difficulty == 0) return;        // invincible: it shows, nothing more
+	uint8_t ubBefore = c->damage;
 	c->damage = c->damage + ubDamage >= DAMAGE_MAX ? DAMAGE_MAX : (uint8_t)(c->damage + ubDamage);
+	if(ubBefore < DAMAGE_WARN && c->damage >= DAMAGE_WARN && c->damage < DAMAGE_MAX) say(g, MSG_REPAIR, 250);
 	if(c->damage < DAMAGE_MAX) return;
 	c->crashed = 1;
 	c->landed = 0;
@@ -810,6 +901,30 @@ uint8_t logicDraw(const tGame *g, tDraw *pOut) {
 		const tAir *a = &g->pAir[i];
 		if(a->active) n = drawAdd(pOut, n, (int16_t)(a->x - 16 - cx), (int16_t)(a->y - 16 - cy),
 			a->kind == AIR_JET ? BOB_JET : BOB_BOMBER, FRAME8(a->heading));
+	}
+	// home's pointer at the edge of the play area, when it's off screen
+	int16_t hx, hy;
+	if(g->state == GS_PLAY && homeAt(g, &hx, &hy)) {
+		int16_t sx = (int16_t)(hx - cx), sy = (int16_t)(hy - cy);
+		if(sx < -16 || sx > SCREEN_W + 16 || sy < -16 || sy > PLAY_H + 16) {
+			uint8_t isUrgent = !c->bombs || c->damage >= DAMAGE_WARN;
+			if(!isUrgent || (g->frame & 8)) {
+				// along the line from the middle of the play area, to a box 12 px in
+				int16_t dx = (int16_t)(sx - SCREEN_W / 2), dy = (int16_t)(sy - PLAY_H / 2);
+				int16_t ax = dx < 0 ? (int16_t)-dx : dx, ay = dy < 0 ? (int16_t)-dy : dy;
+				int16_t px, py;
+				const int16_t wHw = SCREEN_W / 2 - 12, wHh = PLAY_H / 2 - 12;
+				if(mulw(ax, wHh) > mulw(ay, wHw)) {
+					px = (int16_t)(SCREEN_W / 2 + (dx < 0 ? -wHw : wHw));
+					py = (int16_t)(PLAY_H / 2 + divw(mulw(dy, wHw), ax));
+				}
+				else {
+					py = (int16_t)(PLAY_H / 2 + (dy < 0 ? -wHh : wHh));
+					px = (int16_t)(SCREEN_W / 2 + divw(mulw(dx, wHh), ay));
+				}
+				n = drawAdd(pOut, n, (int16_t)(px - 8), (int16_t)(py - 8), BOB_POINTER, FRAME8(logicHeadingTo(dx, dy)));
+			}
+		}
 	}
 	for(uint8_t i = 0; i < BOOM_MAX; ++i) {
 		const tBoom *b = &g->pBooms[i];

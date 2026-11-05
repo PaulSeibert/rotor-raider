@@ -1,0 +1,14 @@
+# Finding the carrier: flying east away from it, the carrier drops off screen
+# and a yellow pointer at the play area's left edge points back at it; the
+# HUD's compass arrow by CARRIER points west.
+wait-serial "AGK t0"
+wait 10
+press fire 2
+wait-serial "theatre loaded=0"
+wait 10
+press up 160
+wait 20
+screenshot away
+expect-color away 13 105 0xFC2
+expect-color away 57 251 0xFEC
+expect-no-serial "AGK ERR"

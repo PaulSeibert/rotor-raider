@@ -7,8 +7,10 @@ wait-serial "AGK t0"
 wait 60
 screenshot title
 expect-serial "state=0"
-# the title logo's yellow top, the copyright sign's C, the HUD
-expect-color title 34 26 0xFC2 near 2
-expect-color title 75 78 0xFEC near 1
+# the chrome logo (the copper's colours: steel blue, then gold, down RAIDER),
+# the copyright sign, the HUD
+expect-color title 60 64 0x8BD
+expect-color title 40 72 0xEB5
+expect-color title 75 116 0xFEC
 expect-color title 4 229 0xFEC near 2
 expect-no-serial "AGK ERR"
