@@ -204,8 +204,36 @@ def turret(dead):
     if dead:
         crater(g, 8, 8, 7, 501)
         return g
-    disc(g, 8, 8, 7, 4, 7)
-    disc(g, 8, 8, 4, 6, 3)
+    # a sandbagged gun pit: a ring of bags (beach-coloured, seams and their
+    # shadows dark), a dark inner wall in shadow, a concrete floor for the
+    # gun (a BOB on the other playfield, turning to aim), ammo by the gap
+    for y in range(16):
+        for x in range(16):
+            dx, dy = x + 0.5 - 8, y + 0.5 - 8
+            d = math.hypot(dx, dy)
+            a = math.atan2(dy, dx)
+            if d <= 7.6:
+                if d > 5.0:
+                    seam = (a * 12 / math.pi) % 2.0                # 12 bags round
+                    row = (d - 5.0) > 1.3                           # two courses
+                    if row:
+                        seam = (seam + 1.0) % 2.0
+                    g[y][x] = 6 if seam < 0.38 else 7 if (dx + dy < -3 and seam > 1.2) else 4
+                elif d > 4.0:
+                    g[y][x] = 6 if dx + dy < 2 else 3               # the wall's inner face
+                else:
+                    g[y][x] = 3                                     # concrete floor
+    for y in range(12, 16):                                         # the gap, south-east
+        for x in range(11, 14):
+            if g[y][x] in (4, 7, 6):
+                g[y][x] = 6 if y == 12 or x == 11 else 5
+    fill(g, 12, 13, 14, 15, 7)                                      # ammo crates
+    g[14][12] = 6
+    for y in range(16):                                             # cast shadow, down-right
+        for x in range(16):
+            d = math.hypot(x + 0.5 - 9.2, y + 0.5 - 9.2)
+            if 7.6 < d <= 8.4 and math.hypot(x + 0.5 - 8, y + 0.5 - 8) > 7.6 and g[y][x] == 5:
+                g[y][x] = 6
     return g
 
 

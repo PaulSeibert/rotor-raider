@@ -28,6 +28,11 @@ set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DAMIGA -Wall -Wextra -fomit-frame-pointer")
 set(AGK_KIT "/home/amiga/amiga-game-kit" CACHE PATH "Amiga Game Kit root")
 set(ACE_DIR "${AGK_KIT}/third_party/ACE" CACHE PATH "ACE source dir")
 add_subdirectory(${ACE_DIR} ace)
+# The engine mostly runs at setup: built small (-Os after the release -O3), it
+# keeps the program small enough that every file fits in one half of the
+# floppy, so no load runs across the disk's end (AROS's floppy driver hangs
+# on the next access after one that does)
+target_compile_options(ace PRIVATE -Os)
 include_directories(${ACE_DIR}/include)
 add_subdirectory(${AGK_KIT}/runtime agk)
 # Rotor Raider's blit queue holds tiles as well as objects: 256 blits a frame

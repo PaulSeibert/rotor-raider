@@ -10,5 +10,5 @@ press up 160
 wait 20
 screenshot away
 expect-color away 13 105 0xFC2
-expect-color away 57 251 0xFEC
+expect-color away 57 251 0xDEF near 2
 expect-no-serial "AGK ERR"

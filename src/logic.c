@@ -5,13 +5,13 @@
 
 const uint16_t g_pBobW[BOB_TYPES] = {[BOB_SHADOW] = 32, [BOB_CARRIER] = 96, [BOB_SHOT] = 16,
 	[BOB_BOMB] = 16, [BOB_BOOM] = 32, [BOB_PUFF] = 16, [BOB_RETICLE] = 16, [BOB_JET] = 32,
-	[BOB_BOMBER] = 32, [BOB_BOAT] = 16, [BOB_CRUISER] = 96, [BOB_FLAK] = 16, [BOB_MISSILE] = 16, [BOB_LOGO] = 304, [BOB_POINTER] = 16};
+	[BOB_BOMBER] = 32, [BOB_BOAT] = 16, [BOB_CRUISER] = 96, [BOB_FLAK] = 16, [BOB_MISSILE] = 16, [BOB_LOGO] = 304, [BOB_POINTER] = 16, [BOB_GUN] = 16};
 const uint8_t g_pBobH[BOB_TYPES] = {[BOB_SHADOW] = 32, [BOB_CARRIER] = 32, [BOB_SHOT] = 4,
 	[BOB_BOMB] = 8, [BOB_BOOM] = 32, [BOB_PUFF] = 16, [BOB_RETICLE] = 16, [BOB_JET] = 32,
-	[BOB_BOMBER] = 32, [BOB_BOAT] = 16, [BOB_CRUISER] = 32, [BOB_FLAK] = 4, [BOB_MISSILE] = 16, [BOB_LOGO] = 92, [BOB_POINTER] = 16};
+	[BOB_BOMBER] = 32, [BOB_BOAT] = 16, [BOB_CRUISER] = 32, [BOB_FLAK] = 4, [BOB_MISSILE] = 16, [BOB_LOGO] = 92, [BOB_POINTER] = 16, [BOB_GUN] = 16};
 const uint8_t g_pBobFrames[BOB_TYPES] = {[BOB_SHADOW] = 16, [BOB_CARRIER] = 4, [BOB_SHOT] = 1,
 	[BOB_BOMB] = 1, [BOB_BOOM] = 6, [BOB_PUFF] = 4, [BOB_RETICLE] = 2, [BOB_JET] = 8,
-	[BOB_BOMBER] = 8, [BOB_BOAT] = 8, [BOB_CRUISER] = 2, [BOB_FLAK] = 1, [BOB_MISSILE] = 8, [BOB_LOGO] = 1, [BOB_POINTER] = 8};
+	[BOB_BOMBER] = 8, [BOB_BOAT] = 8, [BOB_CRUISER] = 2, [BOB_FLAK] = 1, [BOB_MISSILE] = 8, [BOB_LOGO] = 1, [BOB_POINTER] = 8, [BOB_GUN] = 16};
 
 const char *const g_pTheatreName[THEATRES] = {"CORAL REACH", "EMBER FLATS", "FROSTLINE"};
 
@@ -151,6 +151,7 @@ static void structTiles(tGame *g, const tStruct *s) {
 
 void logicLoadTheatre(tGame *g, const tTheatre *pTh) {
 	g->ubStructs = 0;
+	g->ubTurrets = 0;
 	g->factoriesLeft = 0;
 	g->ubSpawns = 0;
 	for(uint16_t i = 0; i < pTh->uwObjs; ++i) {
@@ -169,13 +170,14 @@ void logicLoadTheatre(tGame *g, const tTheatre *pTh) {
 			continue;
 		}
 		if(g->ubStructs >= STRUCT_MAX) continue;
+		if(o->type == OBJ_TURRET) g->pTurrets[g->ubTurrets++] = g->ubStructs;
 		tStruct *s = &g->pStructs[g->ubStructs++];
 		s->type = o->type;
 		s->tx = o->tx;
 		s->ty = o->ty;
 		s->stage = 0;
 		s->timer = 0;
-		s->link = o->a;
+		s->link = o->type == OBJ_TURRET ? (uint8_t)((o->tx ^ o->ty) & 7) : o->a;   // turrets: the gun's aim
 		s->hp = o->type == OBJ_FACTORY ? logicFactoryHp(g) : o->type == OBJ_TURRET ? TURRET_HP :
 			o->type == OBJ_RADAR ? RADAR_HP : 1;
 		if(o->type == OBJ_PIER) {
@@ -840,7 +842,6 @@ void logicUpdate(tGame *g, const tInput *pIn) {
 // --------------------------------------------------------------- drawing ---
 
 // a heading of 16 to the nearest of 8 drawn frames
-#define FRAME8(h) ((uint8_t)((((h) + 1) >> 1) & 7))
 
 static inline uint8_t onScreen(int16_t sx, int16_t sy, uint16_t w, uint8_t h) {
 	return sx > -(int16_t)w && sx < SCREEN_W && sy > -(int16_t)h && sy < PLAY_H;
@@ -859,6 +860,13 @@ uint8_t logicDraw(const tGame *g, tDraw *pOut) {
 	uint8_t n = 0;
 	int16_t cx = g->camX, cy = g->camY;
 	const tCarrier *k = &g->carrier;
+	// the turrets' guns, on their tiles: aimed, and flashing as they fire
+	for(uint8_t i = 0; i < g->ubTurrets; ++i) {
+		const tStruct *s = &g->pStructs[g->pTurrets[i]];
+		if(!s->hp) continue;
+		uint8_t f = (uint8_t)((s->link & 7) | (s->link & TURRET_FLASH ? 8 : 0));
+		n = drawAdd(pOut, n, (int16_t)((s->tx << 4) - cx), (int16_t)((s->ty << 4) - cy), BOB_GUN, f);
+	}
 	if(k->hp) {
 		uint8_t f = (uint8_t)((k->dir < 0 ? 2 : 0) + ((g->frame >> 3) & 1));
 		n = drawAdd(pOut, n, (int16_t)(k->x - 48 - cx), (int16_t)(k->y - 16 - cy), BOB_CARRIER, f);

@@ -1,6 +1,7 @@
 # ROTOR RAIDER
 
-**An Amiga helicopter strike game by Paul Ross Seibert.**
+**An Amiga helicopter strike game, authored by Paul Ross Seibert and
+published by Desert Palms Software.**
 
 **© 2026 Desert Palms Software.**
 
@@ -13,8 +14,8 @@
 The Iron Combine has turned three island chains into war-factory theatres.
 Fly the gunship *Kestrel* off the carrier DPS *Mirage*, which steams a slow
 patrol across each theatre, and bomb the six factories before the Combine
-overwhelms you. Its AA turrets throw flak, and homing missiles once half the
-factories are down. Radar stations send interceptors after you. Bombers go
+overwhelms you. Its sandbagged AA guns turn to track you and throw flak, and
+homing missiles once half the factories are down. Radar stations send interceptors after you. Bombers go
 for your carrier. Supply boats rebuild damaged factories. In the shipyard a
 cruiser is being built, and when it sails it hunts the carrier.
 
@@ -27,7 +28,7 @@ faster-built cruiser) and **Frostline** (5, and missiles almost at once).
 | File | What it is |
 |---|---|
 | [**rotor-raider.adf**](https://github.com/PaulSeibert/rotor-raider/releases/latest/download/rotor-raider.adf) | The game disk: a bootable Amiga floppy image. This is all you need to play. |
-| [rotor-raider-1.1.zip](https://github.com/PaulSeibert/rotor-raider/releases/latest/download/rotor-raider-1.1.zip) | The full release: the disk, the program for hard-disk installs, a README and the demo GIF |
+| [rotor-raider-1.2.zip](https://github.com/PaulSeibert/rotor-raider/releases/latest/download/rotor-raider-1.2.zip) | The full release: the disk, the program for hard-disk installs, a README and the demo GIF |
 | [rotor-raider-demo.mp4](https://github.com/PaulSeibert/rotor-raider/releases/latest/download/rotor-raider-demo.mp4) | The gameplay video |
 
 All versions are on the [Releases page](https://github.com/PaulSeibert/rotor-raider/releases).
@@ -105,6 +106,7 @@ the score bar (SK3) and stays until you change it.
   five bombs) before it sinks the carrier.
 - If the carrier sinks, the airstrip is your only place to land.
 - Damage shows on the HUD bar; at 100% the gunship goes down. You have four.
+- An AA gun's barrels show where it's aiming, and they flash when it fires.
 - The HUD shows the score, gunships left, damage, bombs, the carrier's
   strength, the shipyard's progress, factories left and a map of the whole
   theatre (red: factories, yellow: the carrier, white: you, orange: planes).
@@ -119,6 +121,10 @@ the score bar (SK3) and stays until you change it.
   Everything else (the carrier, planes, ships, flak, bombs, explosions, the
   shadow) is drawn by the blitter on the second playfield, so nothing has to
   restore the terrain.
+- **The AA guns** are hardware sprites: two attached pairs of 15 colours,
+  each reused down the screen, so a dozen guns turning to track you cost the
+  blitter and the CPU almost nothing. (A gun the sprites have no room for on
+  its lines is drawn by the blitter instead.)
 - **The chrome title.** The ROTOR RAIDER lettering is drawn in five pens;
   the copper reloads all five on every one of its 92 lines, so it shades from
   steel blue through a white horizon to gold and bronze like chrome, with a
@@ -128,7 +134,9 @@ the score bar (SK3) and stays until you change it.
   where the band starts on screen, always in open sea, so the changes never
   show: about three times the colours on screen. The wave crests glitter,
   dusk falls over the theatre as the battle goes on, and the HUD is a
-  separate screen under the play area.
+  separate screen under the play area. Its lettering is the game's own bold
+  font, and the copper colours it row by row: the labels like hot metal, the
+  numbers white to steel, the messages ice to gold.
 - **Sprites.** The gunship is a 32×32, 15-colour attached hardware sprite in
   16 headings with a turning rotor, its shadow on the ground showing its
   height.
@@ -161,15 +169,17 @@ cp build/demo.mp4 demo/rotor-raider.mp4
 Everything is made by scripts, so every asset can be regenerated from source:
 `art/tools/tiles.py` (the terrain tiles), `art/tools/theatres.py` (the three
 theatres: islands from a seed, structures placed by rules), `art/tools/sprites.py`
-(the gunship and everything else that moves, rendered from simple models at
-every heading), `art/tools/make_dps_logo.py` (the logo) and
-`sound/tools/make_samples.py` (the instruments).
+(the gunship, the AA guns and everything else that moves, rendered from simple
+models at every heading), `art/tools/hudfont.py` (the font),
+`art/tools/make_dps_logo.py` (the logo) and `sound/tools/make_samples.py` (the
+instruments).
 
 ## Credits
 
-**Rotor Raider** © 2026 Desert Palms Software. All rights reserved.
+**Rotor Raider** is authored by **Paul Ross Seibert** and published by
+**Desert Palms Software**. © 2026 Desert Palms Software. All rights reserved.
 
-Design, code, graphics and music: **Paul Ross Seibert**.
+Design, code, graphics and music: Paul Ross Seibert.
 An original game, inspired by the helicopter strike games of the 1980s.
 
 Built with:

@@ -497,6 +497,34 @@ static void testTurretFiresFlakInRange(void) {
 	CHECK(!g.pEShots[0].active);
 }
 
+// The gun turns a step at a time to aim at the gunship (north-east of it
+// here), flashes when it fires, and is drawn on its turret; a crater has none
+static void testTurretGunAimsAndFlashes(void) {
+	turretGame();
+	g.pStructs[1].link = 5;                       // aimed south-west
+	uint8_t ubFlash = 0, ubTurns = 0, ubLast = 5;
+	for(int i = 0; i < 40; ++i) {
+		step(NONE, 1);
+		uint8_t ubAim = g.pStructs[1].link & 7;
+		if(ubAim != ubLast) { CHECK(((ubAim - ubLast) & 7) == 1 || ((ubLast - ubAim) & 7) == 1); ++ubTurns; ubLast = ubAim; }
+		if(g.pStructs[1].link & TURRET_FLASH) ubFlash = 1;
+	}
+	CHECK((g.pStructs[1].link & 7) == 1);         // north-east
+	CHECK(ubTurns == 4 && ubFlash);
+	tDraw pDraw[DRAW_MAX];
+	g.camX = 520 - 160; g.camY = 440 - 100;
+	uint8_t n = logicDraw(&g, pDraw), ubGuns = 0;
+	for(uint8_t i = 0; i < n; ++i) if(pDraw[i].bob == BOB_GUN) {
+		++ubGuns;
+		CHECK(pDraw[i].x == 520 - 8 - g.camX && pDraw[i].y == 440 - 8 - g.camY);
+		CHECK((pDraw[i].frame & 7) == 1);
+	}
+	CHECK(ubGuns == 1);
+	g.pStructs[1].hp = 0;
+	n = logicDraw(&g, pDraw);
+	for(uint8_t i = 0; i < n; ++i) CHECK(pDraw[i].bob != BOB_GUN);
+}
+
 static void testFlakHurtsAndGodmodeShrugs(void) {
 	turretGame();
 	g.uwJetTimer = 60000;
@@ -769,6 +797,7 @@ int main(void) {
 	testNoBombsOnDeckOrEmpty();
 	testHeadingTo();
 	testTurretFiresFlakInRange();
+	testTurretGunAimsAndFlashes();
 	testFlakHurtsAndGodmodeShrugs();
 	testCrashRespawnAndGameOver();
 	testMissilesFromAlertThree();

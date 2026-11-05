@@ -210,6 +210,8 @@ typedef struct {
 	tCarrier carrier;
 	tStruct pStructs[STRUCT_MAX];
 	uint8_t ubStructs;
+	uint8_t ubTurrets;
+	uint8_t pTurrets[STRUCT_MAX];   // the turrets' indices in pStructs (their guns are drawn each picture)
 	uint8_t factoriesLeft;
 	tShot pShots[SHOT_MAX];        // the cannon's
 	tShot pBombs[BOMB_FALL_MAX];
@@ -298,6 +300,8 @@ typedef struct {
 #define LIVES_START 4
 #define THEATRES 3
 #define TURRET_RANGE 120       // px, ground distance to the gunship's ground point
+#define TURRET_TRACK 200       // px: a turret's gun follows the gunship from this far
+#define TURRET_FLASH 0x80      // a turret's link: its gun's aim (0-7, of 8) | this while it fires
 #define TURRET_COOL 110        // frames between rounds (difficulty and alert take some off)
 #define FLAK_SPEED 48          // 3 px a frame
 #define FLAK_R 14              // a burst this close hurts
@@ -336,7 +340,7 @@ extern const int8_t g_pHeadX[16], g_pHeadY[16];   // unit vectors * 64
 // --------------------------------------------------------------- drawing ---
 // BOBs on PF1 (sizes must match the art: main.c checks at startup)
 enum { BOB_SHADOW, BOB_CARRIER, BOB_SHOT, BOB_BOMB, BOB_BOOM, BOB_PUFF, BOB_RETICLE,
-	BOB_JET, BOB_BOMBER, BOB_BOAT, BOB_CRUISER, BOB_FLAK, BOB_MISSILE, BOB_LOGO, BOB_POINTER, BOB_TYPES };
+	BOB_JET, BOB_BOMBER, BOB_BOAT, BOB_CRUISER, BOB_FLAK, BOB_MISSILE, BOB_LOGO, BOB_POINTER, BOB_GUN, BOB_TYPES };
 extern const uint16_t g_pBobW[BOB_TYPES];
 extern const uint8_t g_pBobH[BOB_TYPES], g_pBobFrames[BOB_TYPES];
 
@@ -383,6 +387,7 @@ uint16_t logicRandom(tGame *g);
 
 uint8_t logicTileAt(const tMap *pMap, int16_t x, int16_t y);   // world px; outside: open sea
 uint8_t logicHeadingFor(int8_t dx, int8_t dy);                 // stick -> heading (arcade)
+#define FRAME8(h) ((uint8_t)((((h) + 1) >> 1) & 7))   // a heading of 16 -> the nearest of 8
 uint8_t logicHeadingTo(int16_t dx, int16_t dy);                // a heading toward (dx, dy), of 16
 int8_t logicTurnToward(uint8_t ubFrom, uint8_t ubTo);          // -1, 0, 1: the shorter way
 

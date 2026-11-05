@@ -28,7 +28,7 @@ def readme_txt(t):
                   'graphics, the logo), and run it from there.\n'
                   'rotor-raider-demo.gif is a 12-second clip of the game in action.\n')
     t = t.replace('By Paul Ross Seibert.\n',
-                  'By Paul Ross Seibert.\n'
+                  'Authored by Paul Ross Seibert. Published by Desert Palms Software.\n'
                   '(c) 2026 Desert Palms Software. All rights reserved.\n\n'
                   'Built with the ACE game engine (Mozilla Public License 2.0,\n'
                   'https://github.com/AmigaPorts/ACE), including its ProTracker player, and the\n'

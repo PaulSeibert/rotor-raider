@@ -13,10 +13,10 @@ allow = ["titleCamFit"]                             # (when the title starts)
 
 [release]                                            # agk release: the zip for Aminet / itch.io (agk help-release)
 title = "Rotor Raider"
-version = "1.1"
+version = "1.2"
 author = "Paul Ross Seibert"
 short = "Helicopter strike game for the Amiga 500" # one line, up to 40 characters
 type = "game/shoot"                                   # Aminet type: game/shoot, game/jump, game/race, game/misc
-description = "Fly the gunship Kestrel off the carrier DPS Mirage and bomb the Iron Combine's war factories across three island theatres: Coral Reach, Ember Flats and Frostline. Turrets throw flak and missiles, radar sends interceptors, bombers go for your carrier, supply boats rebuild the factories, and a cruiser is building in the shipyard. Smooth 8-way scrolling, a 16-direction sprite gunship with its shadow, a copper palette for every island band, a glittering sea, dusk falling as you fight, and a sampled soundtrack. An original game by Paul Ross Seibert. (c) 2026 Desert Palms Software."
+description = "Fly the gunship Kestrel off the carrier DPS Mirage and bomb the Iron Combine's war factories across three island theatres: Coral Reach, Ember Flats and Frostline. Sandbagged AA guns turn to track you and throw flak and missiles, radar sends interceptors, bombers go for your carrier, supply boats rebuild the factories, and a cruiser is building in the shipyard. Smooth 8-way scrolling, a 16-direction sprite gunship with its shadow, AA guns on hardware sprites, a copper palette for every island band, a glittering sea, dusk falling as you fight, a copper-coloured HUD in the game's own font, and a sampled soundtrack. An original game authored by Paul Ross Seibert and published by Desert Palms Software. (c) 2026 Desert Palms Software."
 controls = "Joystick in port 2. Classic steering (with momentum: it glides on and drifts as you turn): left/right turn, up flies, down brakes. Arcade steering: push where you want to go (choose on the title with left/right). Fire: gun; hold fire (or a second button, or B): bomb. Land slow and still on the carrier or the airstrip to repair and reload: the arrow at the screen's edge and on the HUD points the way home. Keys: arrows, Space, B bomb, P pause, M music, Esc quit. Ctrl+L then 1-5 sets the difficulty (3 normal), 0 makes the gunship invincible for testing (then Ctrl+L, 9 jumps to the next factory)."
 screenshot = "demo/screenshot.agk"

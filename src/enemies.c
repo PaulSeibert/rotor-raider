@@ -225,12 +225,22 @@ static void turretsUpdate(tGame *g) {
 	for(uint8_t i = (uint8_t)(g->frame & 3); i < g->ubStructs; i = (uint8_t)(i + 4)) {
 		tStruct *s = &g->pStructs[i];
 		if(s->type != OBJ_TURRET || !s->hp) continue;
-		if(s->timer) { s->timer = s->timer > 4 ? (uint16_t)(s->timer - 4) : 0; continue; }
-		if(!isTarget) continue;
+		s->link &= 7;                       // a muzzle flash lasts one turn (4 frames)
 		int16_t x = (int16_t)(s->tx * TILE + 8), y = (int16_t)(s->ty * TILE + 8);
-		if(dist((int16_t)(c->x - x), (int16_t)(c->y - y)) > TURRET_RANGE) continue;
+		int16_t d = 0x7FFF;
+		if(isTarget) {
+			int16_t dx = (int16_t)(c->x - x), dy = (int16_t)(c->y - y);
+			d = dist(dx, dy);
+			if(d <= TURRET_TRACK) {         // the gun turns toward the gunship, a step a turn
+				uint8_t ubTurn = (uint8_t)((FRAME8(logicHeadingTo(dx, dy)) - s->link) & 7);
+				if(ubTurn) s->link = (uint8_t)((s->link + (ubTurn <= 4 ? 1 : 7)) & 7);
+			}
+		}
+		if(s->timer) { s->timer = s->timer > 4 ? (uint16_t)(s->timer - 4) : 0; continue; }
+		if(d > TURRET_RANGE) continue;
 		if(isMissile && !(logicRandom(g) & 3)) missileFire(g, x, y);
 		else flakFire(g, x, y);
+		s->link |= TURRET_FLASH;
 		int16_t wCool = (int16_t)(TURRET_COOL + s_pTurretCool[g->difficulty] + s_pThTurretCool[thIx(g)] -
 			s_pAlertCool[logicAlert(g)] + (logicRandom(g) & 31));
 		s->timer = (uint16_t)(wCool < 30 ? 30 : wCool);
