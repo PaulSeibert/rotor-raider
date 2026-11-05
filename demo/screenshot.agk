@@ -1,0 +1,17 @@
+# The release picture (agk.toml [release] screenshot): a bomb bursting on a
+# war factory, its AA turrets around it (the raid of demo/showcase.agk).
+wait-serial "AGK t0"
+wait 20
+press right 2
+wait 20
+press fire 2
+wait-serial "theatre loaded=0"
+wait 40
+press left+up 150
+press left 175
+wait 40
+press fire2 2
+wait 45
+press fire2 2
+wait 26
+screenshot raid

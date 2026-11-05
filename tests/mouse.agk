@@ -1,0 +1,13 @@
+# Moving the mouse (port 1) must not move the gunship: the game reads only the
+# joystick in port 2 (ACE JOY1). On deck it stays put, landed, facing east.
+wait-serial "AGK t0"
+wait 10
+press fire 2
+wait-serial "theatre loaded=0"
+wait 10
+mouse 40 0
+wait 10
+mouse -60 30
+wait 40
+expect-no-serial "landed=0"
+expect-no-serial "heading=(?!4 )\d+"

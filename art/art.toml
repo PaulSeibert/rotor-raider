@@ -1,0 +1,21 @@
+# ROTOR RAIDER art, converted by agk (agk art / agk build). Reference: agk help-art
+# Made by scripts in art/tools/ (tiles.py, sprites.py): edit those, not the .txt.
+[art]
+depth = 3                 # playfield 1: BOBs, 7 colours
+
+[chopper]                 # 32x32, 15 colours: two attached pairs (channels 0-3)
+source = "chopper.txt"
+kind = "sprite"
+attached = true
+channel = 0
+
+[tiles]                   # the terrain tileset (PF2), tiles stacked
+source = "tiles.txt"
+kind = "bitmap"
+depth = 3
+palette = "tile_pal.txt"
+
+# The BOBs (shadow, carrier, shot, bomb, boom, puff, reticle, jet, bomber,
+# boat, cruiser, flak, missile, logo) are text art in art/ too, drawn by
+# art/tools/sprites.py, which also packs them for the floppy (disk/bobs.bin):
+# loaded at startup, they aren't kept twice in RAM as they would be from here.

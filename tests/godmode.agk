@@ -1,0 +1,20 @@
+# GODMODE by a factory and its AA turrets for half a minute: hit after hit,
+# the gunship flies on, damage 0, 4 lives.
+wait-serial "AGK t0"
+wait 10
+press fire 2
+wait-serial "theatre loaded=0"
+wait 10
+key 0x63
+key 0x28
+wait 5
+key 0x0A
+wait 30
+key 0x63
+key 0x28
+wait 5
+key 0x09
+wait 1500
+expect-serial "hit ignored"
+expect-no-serial "gunship lost"
+expect-no-serial "damage=[1-9]"

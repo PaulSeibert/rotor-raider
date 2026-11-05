@@ -1,0 +1,56 @@
+; ROTOR RAIDER - title theme (by Paul Ross Seibert). E minor march, 16 bars.
+; Sampled instruments from sound/tools/make_samples.py. Paula channel 2 is
+; left free for the rotor; sound effects borrow channels 1 and 3.
+#title Rotor Raider
+#tempo 124
+#grid 4
+#inst lead samples/lead.wav root=d5 vol=44
+#inst bass samples/bass.wav root=d3 vol=52
+#inst kick samples/kick.wav root=o4c vol=58
+#inst snare samples/snare.wav root=o4c vol=46
+#inst hat samples/hat.wav root=o4c vol=30
+
+; lead
+A @lead
+A o4 e4. e8 g4 b4 | o4 a4. g8 f+4 e4 | o4 d4 e8 f+8 g4 a4 | o4 b2. r4
+A o5 e4. d8 o4 b4 g4 | o4 a4 g8 f+8 e4 d4 | o4 e4 g8 b8 o5 d4 c4 | o4 b2. r4
+A o5 c4. o4 b8 a4 e4 | o4 f+4 g8 a8 b4 a4 | o4 g4 f+8 e8 d4 f+4 | o4 e2. r4
+A o5 e4 d8 c8 o4 b4 o5 c4 | o5 d4 c8 o4 b8 a4 b4 | o4 g4 a8 b8 o5 c4 d+4 | o5 e2. r4
+
+; bass
+B @bass l8
+B o2 e o2 e o2 b o2 e o2 e o2 e o2 b o3 e
+B o2 a o2 a o3 e o2 a o2 a o2 a o3 e o3 a
+B o2 d o2 d o2 a o2 d o2 d o2 d o2 a o3 d
+B o2 e o2 e o2 b o2 e o2 e o2 e o2 b o3 e
+B o2 c o2 c o2 g o2 c o2 c o2 c o2 g o3 c
+B o2 a o2 a o3 e o2 a o2 a o2 a o3 e o3 a
+B o2 e o2 e o2 b o2 e o2 e o2 e o2 b o3 e
+B o2 b o2 b o3 f+ o2 b o2 b o2 b o3 f+ o3 b
+B o2 a o2 a o3 e o2 a o2 a o2 a o3 e o3 a
+B o2 d o2 d o2 a o2 d o2 d o2 d o2 a o3 d
+B o2 g o2 g o3 d o2 g o2 g o2 g o3 d o3 g
+B o2 e o2 e o2 b o2 e o2 e o2 e o2 b o3 e
+B o2 c o2 c o2 g o2 c o2 c o2 c o2 g o3 c
+B o2 d o2 d o2 a o2 d o2 d o2 d o2 a o3 d
+B o2 g o2 g o3 d o2 g o2 g o2 g o3 d o3 g
+B o2 e o2 e o2 b o2 e o2 e o2 e o2 b o3 e
+
+; drums
+D l8 o4
+D @kick c @hat c @snare c @hat c @kick c @kick c @snare c @snare c
+D @kick c @hat c @snare c @hat c @kick c @kick c @snare c @snare c
+D @kick c @hat c @snare c @hat c @kick c @kick c @snare c @snare c
+D @snare c c c c @kick c @snare c c c
+D @kick c @hat c @snare c @hat c @kick c @kick c @snare c @snare c
+D @kick c @hat c @snare c @hat c @kick c @kick c @snare c @snare c
+D @kick c @hat c @snare c @hat c @kick c @kick c @snare c @snare c
+D @snare c c c c @kick c @snare c c c
+D @kick c @hat c @snare c @hat c @kick c @kick c @snare c @snare c
+D @kick c @hat c @snare c @hat c @kick c @kick c @snare c @snare c
+D @kick c @hat c @snare c @hat c @kick c @kick c @snare c @snare c
+D @snare c c c c @kick c @snare c c c
+D @kick c @hat c @snare c @hat c @kick c @kick c @snare c @snare c
+D @kick c @hat c @snare c @hat c @kick c @kick c @snare c @snare c
+D @kick c @hat c @snare c @hat c @kick c @kick c @snare c @snare c
+D @snare c c c c @kick c @snare c c c

@@ -1,0 +1,32 @@
+# GODMODE (Ctrl+L, 0), then the test jump (Ctrl+L, 9) by a factory: three bombs
+# (the second button) destroy it - rubble, a big explosion, 1000 points.
+wait-serial "AGK t0"
+wait 10
+press fire 2
+wait-serial "theatre loaded=0"
+wait 10
+key 0x63
+key 0x28
+wait 5
+key 0x0A
+wait 30
+key 0x63
+key 0x28
+wait 5
+key 0x09
+wait 20
+screenshot over
+expect-serial "test jump"
+press fire2 2
+wait 40
+screenshot damaged
+press fire2 2
+wait 40
+press fire2 2
+wait 26
+screenshot destroyed
+wait-serial "factory destroyed"
+wait 40
+expect-serial "factories=5"
+expect-serial "score=0*1[0-9]{3}"
+expect-serial "sfx bomb"

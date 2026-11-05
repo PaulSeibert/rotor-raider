@@ -1,0 +1,19 @@
+name = "rotorraider"
+profile = "a500"                                     # default for agk run
+test_profiles = ["a500", "a500-ks31", "a500-aros"]   # agk test runs all of these
+sync = "ticks"                                       # waits count game frames (agkPerfBegin marks them)
+boot = "AGK ready"                                   # serial text that means "first frame is on screen"
+unit_sources = ["src/logic.c", "src/theatre.c", "src/enemies.c"]                       # host-compiled for agk unit (no Amiga headers!)
+
+[cmake]                                              # build options, see CMakeLists.txt
+# ACE_BOB_WRAP_Y = false
+
+[release]                                            # agk release: the zip for Aminet / itch.io (agk help-release)
+title = "Rotor Raider"
+version = "1.0"
+author = "Paul Ross Seibert"
+short = "Helicopter strike game for the Amiga 500" # one line, up to 40 characters
+type = "game/shoot"                                   # Aminet type: game/shoot, game/jump, game/race, game/misc
+description = "Fly the gunship Kestrel off the carrier DPS Mirage and bomb the Iron Combine's war factories across three island theatres: Coral Reach, Ember Flats and Frostline. Turrets throw flak and missiles, radar sends interceptors, bombers go for your carrier, supply boats rebuild the factories, and a cruiser is building in the shipyard. Smooth 8-way scrolling, a 16-direction sprite gunship with its shadow, a copper palette for every island band, a glittering sea, dusk falling as you fight, and a sampled soundtrack. An original game by Paul Ross Seibert. (c) 2026 Desert Palms Software."
+controls = "Joystick in port 2. Classic steering: left/right turn, up flies, down brakes. Arcade steering: push where you want to go (choose on the title with left/right). Fire: gun; hold fire (or a second button, or B): bomb. Land slow and still on the carrier or the airstrip to repair and reload. Keys: arrows, Space, B bomb, P pause, M music, Esc quit. Ctrl+L then 1-5 sets the difficulty (3 normal), 0 makes the gunship invincible for testing (then Ctrl+L, 9 jumps to the next factory)."
+screenshot = "demo/screenshot.agk"

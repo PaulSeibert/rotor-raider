@@ -1,0 +1,25 @@
+# The 8-way terrain scroller: off the carrier, flying flat out (2.5 px a frame)
+# east, then north, then south-west: the terrain above the gunship moves the
+# other way, smoothly, across tile columns, tile rows and the ring's wrap.
+# Classic steering: left/right turn (a step every 4 frames), up thrusts.
+wait-serial "AGK t0"
+wait 10
+press fire 2
+wait-serial "theatre loaded=0"
+wait 10
+hold up
+wait 90
+expect-scroll 0 0 319 70 140 -5/2 0
+release
+press left 13
+hold up
+wait 90
+expect-scroll 0 0 319 70 140 0 5/2
+release
+press left 21
+hold up
+wait 90
+expect-scroll 0 0 319 70 140 7/4 -7/4
+screenshot southwest
+release
+expect-no-serial "AGK ERR"

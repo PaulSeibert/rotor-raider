@@ -1,0 +1,31 @@
+# Frame budget: a fight by a factory (GODMODE keeps it going): turrets' flak,
+# jets, boats, bombs and explosions, the scroller. The average is 45-55%; the
+# worst frame (~87%) is a bomb landing on a factory: the blast, the factory's
+# tiles, the fireball and new flak in one picture. None is dropped.
+wait-serial "AGK t0"
+wait 10
+press fire 2
+wait-serial "theatre loaded=0"
+wait 10
+key 0x63
+key 0x28
+wait 5
+key 0x0A
+wait 30
+key 0x63
+key 0x28
+wait 5
+key 0x09
+wait 20
+checkpoint fight
+press fire2 2
+wait 30
+press fire 1
+wait 10
+press fire 1
+wait 600
+press left+up 120
+wait 300
+expect-no-dropped-frames
+expect-max-load 90
+expect-min-chip-free 64

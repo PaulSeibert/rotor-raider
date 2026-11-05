@@ -1,0 +1,16 @@
+# The title theme plays; in play the rotor chops, the gun cracks, a bomb whistles.
+wait-serial "AGK t0"
+mark title
+wait 50
+mark title_end
+expect-sound title title_end
+expect-serial "music theme"
+press fire 2
+wait-serial "theatre loaded=0"
+press up 40
+mark gun
+press fire 1
+wait 10
+mark gun_end
+expect-sound gun gun_end
+expect-serial "sfx cannon"

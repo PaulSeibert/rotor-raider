@@ -1,0 +1,21 @@
+# README demo: the Desert Palms Software logo, the title, then a raid: off
+# the carrier, across the sea, three bombs on the nearest war factory.
+# Arcade steering (right on the title). Record with:
+#   agk record demo/showcase.agk -o build/demo.mp4 --readme --gif demo/rotor-raider.gif --gif-start 8.5 --gif-seconds 12
+wait 230
+wait-serial "AGK t0"
+wait 90
+press right 2
+wait 60
+press fire 2
+wait-serial "theatre loaded=0"
+wait 40
+press left+up 150
+press left 175
+wait 40
+press fire2 2
+wait 45
+press fire2 2
+wait 45
+press fire2 2
+wait 150

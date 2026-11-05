@@ -1,0 +1,16 @@
+# The title: right picks ARCADE steering, left CLASSIC; fire starts the game
+# in theatre 1 on the carrier's deck.
+wait-serial "AGK t0"
+wait 20
+press right 2
+wait 40
+screenshot arcade
+press left 2
+wait 40
+screenshot classic
+press fire 2
+wait-serial "theatre loaded=0"
+wait 30
+screenshot deck
+expect-serial "state=1"
+expect-serial "landed=1"

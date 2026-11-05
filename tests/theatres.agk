@@ -1,0 +1,85 @@
+# All six factories down (GODMODE, the test jump, three bombs each): the theatre
+# is cleared, the fanfare plays, and Ember Flats loads from the floppy.
+wait-serial "AGK t0"
+wait 10
+press fire 2
+wait-serial "theatre loaded=0"
+wait 10
+key 0x63
+key 0x28
+wait 5
+key 0x0A
+wait 30
+key 0x63
+key 0x28
+wait 5
+key 0x09
+wait 20
+press fire2 2
+wait 40
+press fire2 2
+wait 40
+press fire2 2
+wait 60
+key 0x63
+key 0x28
+wait 5
+key 0x09
+wait 20
+press fire2 2
+wait 40
+press fire2 2
+wait 40
+press fire2 2
+wait 60
+key 0x63
+key 0x28
+wait 5
+key 0x09
+wait 20
+press fire2 2
+wait 40
+press fire2 2
+wait 40
+press fire2 2
+wait 60
+key 0x63
+key 0x28
+wait 5
+key 0x09
+wait 20
+press fire2 2
+wait 40
+press fire2 2
+wait 40
+press fire2 2
+wait 60
+key 0x63
+key 0x28
+wait 5
+key 0x09
+wait 20
+press fire2 2
+wait 40
+press fire2 2
+wait 40
+press fire2 2
+wait 60
+key 0x63
+key 0x28
+wait 5
+key 0x09
+wait 20
+press fire2 2
+wait 40
+press fire2 2
+wait 40
+press fire2 2
+wait-serial "state=3"
+wait 60
+screenshot cleared
+expect-serial "music fanfare"
+wait-serial "theatre loaded=1" 600
+wait 60
+screenshot ember
+expect-serial "factories=6"

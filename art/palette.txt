@@ -1,0 +1,9 @@
+# PF1 (objects) colours 0-7. Colour 0 is the sea (COLOR00, behind everything).
+0  0x026  deep water
+1  0x111  black
+2  0x444  shadow
+3  0x888  grey
+4  0xFEC  white
+5  0xF60  orange
+6  0xFC2  yellow
+7  0xC22  red

@@ -1,0 +1,10 @@
+# PF2 terrain pens (colours 8-15 on screen); theatre 1, band 1. The copper
+# loads each island band's own set (art/tools/theatres.py).
+0  0x026  transparent
+1  0x6CE  wave crest
+2  0x29B  shallow
+3  0xDDD  surf
+4  0xEC8  beach
+5  0x6A3  land
+6  0x352  land dark
+7  0xFFE  bright

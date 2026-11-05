@@ -1,0 +1,15 @@
+; ROTOR RAIDER - theatre cleared. 4 bars, E major.
+#title Theatre Cleared
+#tempo 138
+#grid 4
+#inst lead pulse25 vol=48 decay=1
+#inst bass triangle vol=52
+#inst kick kick vol=58
+#inst snare snare vol=46
+A @lead
+A o4 b8 b8 b8 o5 e8 g+4 b4 | o5 a8 a8 a8 f+8 d+4 f+4 | o5 g+8 f+8 e8 f+8 g+4 b4 | o5 e2. r4
+B @bass l4
+B o2 e o2 b o3 e o2 b | o2 b o3 f+ o2 b o3 f+ | o2 a o3 e o2 b o3 f+ | o2 e o2 b o2 e r
+D l8 o4
+D @kick c c @snare c @kick c @kick c c @snare c c | @kick c c @snare c @kick c @kick c c @snare c c
+D @kick c c @snare c @kick c @kick c c @snare c c | @snare c c c c @kick c r r r
