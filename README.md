@@ -27,7 +27,7 @@ faster-built cruiser) and **Frostline** (5, and missiles almost at once).
 | File | What it is |
 |---|---|
 | [**rotor-raider.adf**](https://github.com/PaulSeibert/rotor-raider/releases/latest/download/rotor-raider.adf) | The game disk: a bootable Amiga floppy image. This is all you need to play. |
-| [rotor-raider-1.0.zip](https://github.com/PaulSeibert/rotor-raider/releases/latest/download/rotor-raider-1.0.zip) | The full release: the disk, the program for hard-disk installs, a README and the demo GIF |
+| [rotor-raider-1.1.zip](https://github.com/PaulSeibert/rotor-raider/releases/latest/download/rotor-raider-1.1.zip) | The full release: the disk, the program for hard-disk installs, a README and the demo GIF |
 | [rotor-raider-demo.mp4](https://github.com/PaulSeibert/rotor-raider/releases/latest/download/rotor-raider-demo.mp4) | The gameplay video |
 
 All versions are on the [Releases page](https://github.com/PaulSeibert/rotor-raider/releases).
