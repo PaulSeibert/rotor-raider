@@ -1,5 +1,6 @@
 # Boot: the Desert Palms Software logo, then the title over the slowly panning
-# theatre: the ROTOR RAIDER logo, the credit and copyright, the steering, the HUD.
+# theatre: the ROTOR RAIDER logo (art/tools/make_title_logo.py), the credit
+# and copyright, the steering, the HUD.
 wait 60
 screenshot logo
 expect-color logo 120 22 0xFA2
@@ -7,10 +8,10 @@ wait-serial "AGK t0"
 wait 60
 screenshot title
 expect-serial "state=0"
-# the chrome logo (the copper's colours: steel blue, then gold, down RAIDER),
-# the copyright sign, the HUD (its labels coloured by the copper)
-expect-color title 60 64 0x8BD
-expect-color title 40 72 0xEB5
-expect-color title 75 116 0xFEC
+# the logo (the copper's colours per line: ROTOR's orange, RAIDER's blue),
+# the copyright sign under it, the HUD (its labels coloured by the copper)
+expect-color title 112 90 0xF60
+expect-color title 100 104 0x2BF
+expect-color title 51 164 0xFEC
 expect-color title 1 229 0xFE5
 expect-no-serial "AGK ERR"

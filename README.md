@@ -125,11 +125,12 @@ the score bar (SK3) and stays until you change it.
   each reused down the screen, so a dozen guns turning to track you cost the
   blitter and the CPU almost nothing. (A gun the sprites have no room for on
   its lines is drawn by the blitter instead.)
-- **The chrome title.** The ROTOR RAIDER lettering is drawn in five pens;
-  the copper reloads all five on every one of its 92 lines, so it shades from
-  steel blue through a white horizon to gold and bronze like chrome, with a
-  shine that sweeps down it. The block of copper commands is written once and
-  only the shine's lines change.
+- **The title logo.** The ROTOR RAIDER logo (the rotor in its orange swirl
+  over ROTOR in orange-gold and RAIDER in blue) is a 160×146 picture in the
+  objects' playfield, with the theatre panning behind it and showing through
+  round it. That playfield has only 7 colours, so the copper reloads all 7 on
+  every one of the logo's 146 lines, the 7 that line needs most: 319 colours
+  in one 3-plane picture. Its block of copper commands is written once.
 - **The copper.** Each band of islands has its own eight colours, loaded
   where the band starts on screen, always in open sea, so the changes never
   show: about three times the colours on screen. The wave crests glitter,
@@ -145,7 +146,7 @@ the score bar (SK3) and stays until you change it.
   copper.
 - **Paula.** A looped rotor chop on its own channel, pitched by your speed;
   sound effects on two more; a sampled march on the title.
-- **The floppy.** The three theatres, the logo and all the blitter objects
+- **The floppy.** The three theatres, the logos and all the blitter objects
   are packed on the disk and loaded when needed, so the program stays small
   enough for a 1 MB A500.
 
@@ -171,8 +172,11 @@ Everything is made by scripts, so every asset can be regenerated from source:
 theatres: islands from a seed, structures placed by rules), `art/tools/sprites.py`
 (the gunship, the AA guns and everything else that moves, rendered from simple
 models at every heading), `art/tools/hudfont.py` (the font),
-`art/tools/make_dps_logo.py` (the logo) and `sound/tools/make_samples.py` (the
-instruments).
+`art/tools/make_dps_logo.py` (the Desert Palms Software logo),
+`art/tools/make_title_logo.py` (the title logo, from
+`art/src/rotor_raider_title_source.png`; run it before `sprites.py`, which
+packs it with the other blitter objects) and `sound/tools/make_samples.py`
+(the instruments).
 
 ## Credits
 

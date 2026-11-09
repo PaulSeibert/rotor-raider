@@ -410,57 +410,6 @@ def cruiser():
     return g
 
 
-FONT5 = {   # 5x7 capitals for the logo
-    'R': ['1111.', '1...1', '1...1', '1111.', '1.1..', '1..1.', '1...1'],
-    'O': ['.111.', '1...1', '1...1', '1...1', '1...1', '1...1', '.111.'],
-    'T': ['11111', '..1..', '..1..', '..1..', '..1..', '..1..', '..1..'],
-    'A': ['.111.', '1...1', '1...1', '11111', '1...1', '1...1', '1...1'],
-    'I': ['11111', '..1..', '..1..', '..1..', '..1..', '..1..', '11111'],
-    'D': ['1111.', '1...1', '1...1', '1...1', '1...1', '1...1', '1111.'],
-    'E': ['11111', '1....', '1....', '1111.', '1....', '1....', '11111'],
-    ' ': ['.....'] * 7,
-}
-
-
-def logo(text='ROTOR RAIDER', sx=4, sy=4):
-    """Chunky capitals, sx x sy per font pixel: yellow at the top through
-    orange to red, a black outline and drop shadow"""
-    w = len(text) * 6 * sx - sx + 4
-    w = (w + 15) // 16 * 16
-    h = 7 * sy + 4
-    g = [['.'] * w for _ in range(h)]
-    x0 = (w - (len(text) * 6 * sx - sx)) // 2
-    for i, ch in enumerate(text):
-        for fy, row in enumerate(FONT5[ch]):
-            for fx, b in enumerate(row):
-                if b != '1':
-                    continue
-                for yy in range(sy):
-                    for xx in range(sx):
-                        y = 1 + fy * sy + yy
-                        x = x0 + i * 6 * sx + fx * sx + xx
-                        band = y * 3 // (7 * sy)
-                        g[y][x] = '64' [0] if band == 0 else ('5' if band == 1 else '7')
-                        if yy == 0 and (fy == 0 or FONT5[ch][fy - 1][fx] != '1'):
-                            g[y][x] = '4'      # a highlight on top edges
-    # shadow down-right, then the outline
-    out = [r[:] for r in g]
-    for y in range(h):
-        for x in range(w):
-            if g[y][x] == '.' and y >= 2 and x >= 2 and g[y - 2][x - 2] != '.':
-                out[y][x] = '2'
-    g2 = [r[:] for r in out]
-    for y in range(h):
-        for x in range(w):
-            if out[y][x] == '.':
-                for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
-                    xx, yy = x + dx, y + dy
-                    if 0 <= xx < w and 0 <= yy < h and out[yy][xx] not in '.2':
-                        g2[y][x] = '1'
-                        break
-    return g2
-
-
 # The BOBs go on the floppy, not in the program (an A500's 512 KB of slow
 # RAM holds the program; its images would be there twice: once in the
 # program, once in chip RAM). In the order of logic.h's BOB_*:
@@ -601,88 +550,6 @@ def export_gun_sprites(frames):
     open(os.path.join(ART, '..', 'src', 'gunspr.h'), 'w').write('\n'.join(lines))
 
 
-def chrome_logo():
-    """ROTOR over a bigger RAIDER: smooth, slanted capitals with a bevel.
-    Pens: 1 outline, 2 drop shadow, 3 bevel dark, 4 rotor blur, 5 face,
-    6 face shine, 7 bevel light. The copper colours pens 3-7 line by line
-    (a chrome gradient), so the face is one pen here."""
-    W, H = 304, 92
-
-    def glyph_field(ch):
-        rows = FONT5[ch]
-        def f(u, v):            # u, v in glyph cells; bilinear over cell centres
-            u -= 0.5
-            v -= 0.5
-            x0, y0 = math.floor(u), math.floor(v)
-            tx, ty = u - x0, v - y0
-            def cell(x, y):
-                return 1.0 if 0 <= y < 7 and 0 <= x < 5 and rows[y][x] == '1' else 0.0
-            a = cell(x0, y0) * (1 - tx) + cell(x0 + 1, y0) * tx
-            b = cell(x0, y0 + 1) * (1 - tx) + cell(x0 + 1, y0 + 1) * tx
-            return a * (1 - ty) + b * ty
-        return f
-
-    mask = [[0] * W for _ in range(H)]
-    def word(text, sx, sy, top, gap):
-        width = len(text) * (5 * sx + gap) - gap
-        left = (W - width) // 2 - 8
-        for i, ch in enumerate(text):
-            f = glyph_field(ch)
-            for y in range(7 * sy):
-                for x in range(5 * sx + 10):
-                    shear = (7 * sy - y) * 0.24
-                    u, v = (x - shear) / sx, y / sy
-                    if 0 <= u < 5 and f(u, v) > 0.30:
-                        X, Y = left + i * (5 * sx + gap) + x, top + y
-                        if 0 <= X < W and 0 <= Y < H:
-                            mask[Y][X] = 1
-        return top, top + 7 * sy
-    word('ROTOR', 6, 5, 2, 5)
-    word('RAIDER', 8, 6, 42, 6)
-    g = [['.'] * W for _ in range(H)]
-    # the rotor's blur: an arc behind ROTOR
-    for y in range(H):
-        for x in range(W):
-            d = math.hypot((x - W / 2 + 8) / 150.0, (y - 30) / 26.0)
-            if 0.93 < d < 1.0 and y < 34:
-                g[y][x] = '4'
-    # drop shadow, then the letters with a bevel
-    for y in range(H):
-        for x in range(W):
-            if mask[y][x] == 0 and y >= 3 and x >= 3 and mask[y - 3][x - 3]:
-                g[y][x] = '2'
-    for y in range(H):
-        for x in range(W):
-            if not mask[y][x]:
-                continue
-            up = y > 0 and mask[y - 1][x] and x > 0 and mask[y][x - 1]
-            dn = y < H - 1 and mask[y + 1][x] and x < W - 1 and mask[y][x + 1]
-            up2 = y > 1 and mask[y - 2][x]
-            dn2 = y < H - 2 and mask[y + 2][x]
-            if not up or not up2:
-                g[y][x] = '7'
-            elif not dn or not dn2:
-                g[y][x] = '3'
-            else:
-                g[y][x] = '5'
-    # a diagonal glint on the faces
-    for y in range(H):
-        for x in range(W):
-            if g[y][x] == '5' and (x + y) % 23 in (0, 1):
-                g[y][x] = '6'
-    # the black outline
-    out = [r[:] for r in g]
-    for y in range(H):
-        for x in range(W):
-            if g[y][x] in '.24':
-                for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
-                    xx, yy = x + dx, y + dy
-                    if 0 <= xx < W and 0 <= yy < H and mask[yy][xx]:
-                        out[y][x] = '1'
-                        break
-    return out
-
-
 def main():
     frames = [render(32, chopper_pixel, h, p) for h in range(16) for p in range(2)]
     save('chopper', 'The Kestrel gunship, 32x32, heading * 2 + rotor phase', CHOPPER_COLORS, frames)
@@ -699,7 +566,7 @@ def main():
     save_bob('cruiser', 'The Combine cruiser, 96x32: east, west', [c, flip(c)])
     flak = [list(r.ljust(16, '.')) for r in ['.66.....', '6446....', '6446....', '.66.....']]   # a bright tracer
     save_bob('flak', 'A flak or naval shell, 16x4', [flak])
-    save_bob('logo', 'ROTOR RAIDER, the title: chrome (the copper colours pens 3-7 line by line)', [chrome_logo()])
+    # (logo.txt, the title logo, is made by make_title_logo.py: run it first)
     save_bob('pointer', "Home's pointer at the screen's edge, 16x16, 8 headings",
              [render_pens(16, pointer_pixel, h) for h in range(0, 16, 2)])
     guns = [render_pens(16, gun_pixel(fire, h), h) for fire in (0, 1) for h in range(0, 16, 2)]
