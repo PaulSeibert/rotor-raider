@@ -32,7 +32,10 @@ def readme_txt(t):
                   '(c) 2026 Desert Palms Software. All rights reserved.\n\n'
                   'Built with the ACE game engine (Mozilla Public License 2.0,\n'
                   'https://github.com/AmigaPorts/ACE), including its ProTracker player, and the\n'
-                  'Amiga Game Kit runtime (MIT License).\n')
+                  'Amiga Game Kit runtime (MIT License).\n\n'
+                  'Music on Amigas with 1 MB of chip RAM or more (A500+, A600, A1200): dog68\n'
+                  'and dog70 by Songerson, from The Mod Archive (modarchive.org), licensed\n'
+                  'CC BY, used unchanged - see CREDITS.txt.\n')
     return t
 
 
@@ -55,7 +58,10 @@ def main():
     (rpath,) = glob.glob(os.path.join(rel, '*.readme'))
     t = open(rpath).read()
     assert OLD_REQ in t, 'the .readme requirements line has changed'
-    open(rpath, 'w').write(t.replace(OLD_REQ, NEW_REQ))
+    t = t.replace(OLD_REQ, NEW_REQ)
+    t += ('\nMusic on Amigas with 1 MB of chip RAM or more: dog68 and dog70 by Songerson\n'
+          '(The Mod Archive, modarchive.org), CC BY - see CREDITS.txt in the zip.\n')
+    open(rpath, 'w').write(t)
     print(f'finished {os.path.basename(zpath)} and {os.path.basename(rpath)}')
 
 

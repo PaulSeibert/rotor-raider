@@ -28,10 +28,16 @@ faster-built cruiser) and **Frostline** (5, and missiles almost at once).
 | File | What it is |
 |---|---|
 | [**rotor-raider.adf**](https://github.com/PaulSeibert/rotor-raider/releases/latest/download/rotor-raider.adf) | The game disk: a bootable Amiga floppy image. This is all you need to play. |
-| [rotor-raider-1.2.zip](https://github.com/PaulSeibert/rotor-raider/releases/latest/download/rotor-raider-1.2.zip) | The full release: the disk, the program for hard-disk installs, a README and the demo GIF |
+| [rotor-raider-1.3.zip](https://github.com/PaulSeibert/rotor-raider/releases/latest/download/rotor-raider-1.3.zip) | The full release: the disk, the program for hard-disk installs, a README, the music credits and the demo GIF |
 | [rotor-raider-demo.mp4](https://github.com/PaulSeibert/rotor-raider/releases/latest/download/rotor-raider-demo.mp4) | The gameplay video |
 
 All versions are on the [Releases page](https://github.com/PaulSeibert/rotor-raider/releases).
+
+**New in 1.3:**
+- a new title logo;
+- music by Songerson on Amigas with 1 MB of chip RAM or more, with a credits page on the title;
+- classic steering now backs off tail first when you hold down after stopping (let go to hover);
+- the title logo no longer flickers after a game over.
 
 **Requirements:** an Amiga 500 with **1 MB of RAM** (512K chip + 512K
 expansion), Kickstart 1.3 or later, PAL. It runs at 50 frames a second on a
