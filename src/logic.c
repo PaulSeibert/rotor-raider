@@ -562,7 +562,9 @@ static inline int16_t pull(int16_t v, int16_t t, uint8_t n) {
 // Classic steering, with momentum: thrust pulls the velocity a sixteenth of
 // the way a frame toward full speed along the nose, so turning under thrust
 // carves a wide arc; off the stick the gunship glides on, slowing gently
-// (turning then doesn't change where it's going); down brakes.
+// (turning then doesn't change where it's going); down brakes, and held on
+// once the gunship is stopped it backs off slowly, tail first (Raid on
+// Bungeling Bay's stick: up flies, down slows then reverses, off hovers).
 static void classicMomentum(tGame *g, uint8_t isThrust, uint8_t isBrake) {
 	tChopper *c = &g->chop;
 	if(isThrust) {
@@ -574,8 +576,18 @@ static void classicMomentum(tGame *g, uint8_t isThrust, uint8_t isBrake) {
 		return;
 	}
 	if(isBrake) {
-		c->vx = toward0(c->vx, (int16_t)((absw16(c->vx) >> BRAKE_SHIFT) + 1));
-		c->vy = toward0(c->vy, (int16_t)((absw16(c->vy) >> BRAKE_SHIFT) + 1));
+		// still moving forward (along the nose): brake; stopped or going
+		// backward: toward reverse speed, tail first
+		int32_t lAlong = (int32_t)c->vx * g_pHeadX[c->heading] + (int32_t)c->vy * g_pHeadY[c->heading];
+		if(lAlong > 0 || ((c->vx || c->vy) && lAlong == 0)) {
+			c->vx = toward0(c->vx, (int16_t)((absw16(c->vx) >> BRAKE_SHIFT) + 1));
+			c->vy = toward0(c->vy, (int16_t)((absw16(c->vy) >> BRAKE_SHIFT) + 1));
+			return;
+		}
+		int16_t tvx = (int16_t)-((g_pHeadX[c->heading] * V_REVERSE + 32) >> 6);
+		int16_t tvy = (int16_t)-((g_pHeadY[c->heading] * V_REVERSE + 32) >> 6);
+		c->vx = pull(c->vx, tvx, REVERSE_SHIFT);
+		c->vy = pull(c->vy, tvy, REVERSE_SHIFT);
 		return;
 	}
 	// the glide: a share of the speed, at least 1 every few frames

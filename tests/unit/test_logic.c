@@ -66,9 +66,27 @@ static void testClassicRotatesAndThrusts(void) {
 	CHECK(g.chop.vx >= V_MAX - 2 && g.chop.vy == 0);  // full speed east
 	CHECK(g.chop.x > 1060);
 	int16_t x = g.chop.x;
-	step((tInput){.dy = 1}, 30);                      // brake
-	CHECK(g.chop.vx == 0);
+	uint8_t ubStop = 0;
+	for(uint8_t k = 0; k < 40 && g.chop.vx > 0; ++k, ++ubStop) step((tInput){.dy = 1}, 1);   // brake
+	CHECK(g.chop.vx == 0 && ubStop < 30);             // stopped, soon
 	CHECK(g.chop.x > x);                              // it coasted a bit first
+}
+
+// Down held on after stopping: it backs off, tail first, slowly; let go and
+// it comes to a hover (Raid on Bungeling Bay's stick)
+static void testClassicReverses(void) {
+	newGame(STEER_CLASSIC, 1000, 1000);
+	g.chop.heading = 4;                               // nose east
+	step((tInput){.dy = -1}, 60);
+	step((tInput){.dy = 1}, 120);                     // brake, then keep holding
+	CHECK(g.chop.vx < 0 && g.chop.vy == 0);           // going west, tail first
+	CHECK(g.chop.vx >= -V_REVERSE && g.chop.vx <= -V_REVERSE + 2);   // at reverse speed, no more
+	CHECK(g.chop.heading == 4);                       // still facing east
+	int16_t x = g.chop.x;
+	step((tInput){.dy = 1}, 32);
+	CHECK(g.chop.x < x);
+	step(NONE, 300);
+	CHECK(g.chop.vx == 0 && g.chop.vy == 0);          // let go: it settles to a hover
 }
 
 static void testSameSpeedEveryWay(void) {
@@ -767,6 +785,7 @@ int main(void) {
 	testTurnShorterWay();
 	testClassicRotatesAndThrusts();
 	testSameSpeedEveryWay();
+	testClassicReverses();
 	testClassicGlidesThenRests();
 	testClassicTurnWhileGliding();
 	testClassicFullSpeedIsExact();

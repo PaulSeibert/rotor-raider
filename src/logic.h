@@ -272,6 +272,8 @@ typedef struct {
 #define GLIDE_SHIFT 5          // at speed it loses 1/32 of it a frame...
 #define GLIDE_TAIL 3           // ... and slow, 1 every 4 frames (frame & this): ~2.5 s to rest
 #define BRAKE_SHIFT 3
+#define V_REVERSE 13           // classic: down held once stopped backs off, at a third of full speed
+#define REVERSE_SHIFT 4        // ... reached like thrust (1/16 of the gap a frame)
 #define TURN_FRAMES 4          // frames per heading step (16 steps a turn)
 #define ALT_CRUISE 24
 #define LAND_SPEED 4           // slower than this (1/16 px a frame) to land

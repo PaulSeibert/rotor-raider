@@ -63,7 +63,7 @@ Choose the steering on the title screen with left/right.
 
 | Input | Classic steering | Arcade steering |
 |---|---|---|
-| Stick | Left/right turn the gunship, up flies forward, down brakes | Push where you want to go: it turns that way and flies |
+| Stick | Left/right turn the gunship, up flies forward, down slows to a stop, then backs off tail first (let go to hover) | Push where you want to go: it turns that way and flies |
 | Feel | **Momentum**: off the stick the gunship glides on for a couple of seconds, and turning swings the nose (and the gun) without changing where you're going: slide past a target strafing it, or turn under thrust in a wide arc | Snappy: it stops when you let go |
 | Fire | The chin gun (it strikes the ground ahead, and hits planes) | same |
 | Hold fire (0.3 s) | Drop a bomb | same |
