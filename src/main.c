@@ -932,6 +932,12 @@ __attribute__((noinline)) static void msgPrepare(UBYTE ubBfr) {
 			};
 			agkBlitClear(agkBlitqSlot(), &sArea);
 			agkBlitqPush();
+			// a line across the title logo (GAME OVER's, cleared when the
+			// title comes back): the logo goes in again after it, this picture.
+			// The state changes after this function, so in one buffer the logo
+			// went in a picture before its old lines were cleared - and every
+			// other picture lacked the logo's lower half
+			if(s_pLogoShown[ubBfr] && s_pMsgY[l] < LOGO_Y + LOGO_H) s_pLogoShown[ubBfr] = 0;
 			tAgkText *pT = &s_pMsg[ubBfr][l];
 			for(UBYTE c = 0; c < MSG_LEN; ++c) s_pMsgStage[ubBfr][l][c] = pT->szShown[c] = ' ';
 			s_pMsgPending[ubBfr] &= (UWORD)~(1 << l);
