@@ -99,9 +99,28 @@ decay = 5
 volume = 44
 priority = 3
 
-[music.theme]
+[music.theme]             # the title on a 512 KB-chip A500 (dog68 doesn't fit there)
 source = "theme.mml"
 volume = 50
+
+# Songerson's modules (CC BY, The Mod Archive): on the floppy, loaded into chip
+# RAM at boot where there's room (1 MB chip: A500+, A600, A1200), credited on
+# the title's second page (g_pSoundCredits) and in CREDITS.txt
+[music.dog68]             # the title
+mod = "songerson_-_dog68.mod"
+artist = "Songerson"
+license = "CC BY"
+url = "modarchive.org"
+volume = 50
+disk = true
+
+[music.dog70]             # in the air
+mod = "songerson_-_dog70.mod"
+artist = "Songerson"
+license = "CC BY"
+url = "modarchive.org"
+volume = 40
+disk = true
 
 [music.fanfare]
 source = "fanfare.mml"

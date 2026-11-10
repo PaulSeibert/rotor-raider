@@ -739,10 +739,14 @@ static void rotorDestroy(void) {
 // ---------------------------------------------------------------- sound ---
 
 static UBYTE s_isMusicOn = 1, s_ubSong = 0xFF;
+static UBYTE s_ubModules;          // Songerson's modules in chip RAM (0 on a 512 KB-chip A500)
 
 static void musicFor(UBYTE ubState) {
 	UBYTE ubSong = 0xFF;
-	if(ubState == GS_TITLE) ubSong = SOUND_MUSIC_THEME;
+	// Songerson's modules where they're in chip RAM (loaded at boot if it had
+	// room), else the game's own small songs: the title's theme, quiet in the air
+	if(ubState == GS_TITLE) ubSong = soundMusicLoaded(SOUND_MUSIC_DOG68) ? SOUND_MUSIC_DOG68 : SOUND_MUSIC_THEME;
+	else if(ubState == GS_PLAY || ubState == GS_LOST) ubSong = soundMusicLoaded(SOUND_MUSIC_DOG70) ? SOUND_MUSIC_DOG70 : 0xFF;
 	else if(ubState == GS_CLEAR || ubState == GS_VICTORY) ubSong = SOUND_MUSIC_FANFARE;
 	else if(ubState == GS_OVER) ubSong = SOUND_MUSIC_GAMEOVER;
 	if(!s_isMusicOn) ubSong = 0xFF;
@@ -873,6 +877,37 @@ static void msgCoverBegin(UBYTE ubBfr) {
 	}
 }
 
+// The title's second page, the music's credits (sound.toml's artist/license,
+// g_pSoundCredits): its own 5 s after the controls' 5 s - where that music
+// plays (it didn't fit: the game's own songs, nothing to credit)
+static inline UBYTE titleCreditsPage(const tGame *g) {
+	return SOUND_CREDITS_COUNT && s_ubModules && ((g->frame >> 8) & 1);
+}
+
+// "MUSIC: DOG68, DOG70 BY SONGERSON" and "CC BY  MODARCHIVE.ORG" from the
+// credits (one artist and licence assumed - the first's), in the font's
+// capitals; szA and szB hold MSG_LEN + 1
+static void creditsLines(char *szA, char *szB) {
+	UBYTE n = 0;
+	strCat(szA, &n, "MUSIC: ");
+	for(UBYTE i = 0; i < SOUND_CREDITS_COUNT; ++i) {
+		if(i) strCat(szA, &n, ", ");
+		strCat(szA, &n, g_pSoundCredits[i].szTitle);
+	}
+	strCat(szA, &n, " BY ");
+	strCat(szA, &n, g_pSoundCredits[0].szArtist);
+	szA[n] = 0;
+	n = 0;
+	strCat(szB, &n, g_pSoundCredits[0].szLicense);
+	if(g_pSoundCredits[0].szUrl[0]) {
+		strCat(szB, &n, "  ");
+		strCat(szB, &n, g_pSoundCredits[0].szUrl);
+	}
+	szB[n] = 0;
+	for(char *p = szA; *p; ++p) if(*p >= 'a' && *p <= 'z') *p = (char)(*p - 32);
+	for(char *p = szB; *p; ++p) if(*p >= 'a' && *p <= 'z') *p = (char)(*p - 32);
+}
+
 // What the lines say (laid out when it changes). Lines that go blank are
 // cleared at once by the blitter (queued before the objects), not typed away.
 __attribute__((noinline)) static void msgPrepare(UBYTE ubBfr) {
@@ -888,6 +923,12 @@ __attribute__((noinline)) static void msgPrepare(UBYTE ubBfr) {
 			pText[MSG_TITLE + 3] = g->steer == STEER_CLASSIC ? "LEFT/RIGHT TURN, UP FLIES" : "PUSH WHERE YOU WANT TO GO";
 			pText[MSG_TITLE + 4] = (g->frame & 32) ? "PRESS FIRE" : "";
 			pText[MSG_TITLE + 5] = "FIRE: GUN   HOLD FIRE OR B: BOMB";
+			if(titleCreditsPage(g)) {             // every other few seconds: the music's credits
+				creditsLines(szA, szB);
+				pText[MSG_TITLE + 2] = szA;
+				pText[MSG_TITLE + 3] = szB;
+				pText[MSG_TITLE + 5] = "M: MUSIC ON/OFF";
+			}
 			break;
 		case GS_CLEAR:
 			pText[1] = "THEATRE CLEARED";
@@ -912,7 +953,7 @@ __attribute__((noinline)) static void msgPrepare(UBYTE ubBfr) {
 	}
 	// what the lines say changes rarely: lay them out only then
 	UWORD uwKey = (UWORD)(g->state << 12 | g->steer << 4 | g->theatre << 2 |
-		(g->state == GS_TITLE ? (g->frame >> 5) & 1 : 0));
+		(g->state == GS_TITLE ? ((g->frame >> 5) & 1) | (titleCreditsPage(g) << 1) : 0));
 	if(uwKey == s_pMsgKey[ubBfr]) return;
 	s_pMsgKey[ubBfr] = uwKey;
 	for(UBYTE l = 0; l < MSG_LINES; ++l) {
@@ -1383,6 +1424,13 @@ void genericCreate(void) {
 	copperBuild(1);
 
 	soundCreate();
+	// Songerson's two modules from the floppy into chip RAM, if they fit with
+	// room to spare (1 MB chip); a 512 KB A500 keeps the game's own songs
+	UBYTE isDog68 = soundMusicLoad(SOUND_MUSIC_DOG68);
+	UBYTE isDog70 = isDog68 && soundMusicLoad(SOUND_MUSIC_DOG70);
+	s_ubModules = (UBYTE)(isDog68 + isDog70);
+	agkState("modules", s_ubModules);
+	agkEnd();
 	rotorCreate();
 	musicFor(s_sGame.state);
 

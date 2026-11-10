@@ -146,6 +146,11 @@ the score bar (SK3) and stays until you change it.
   copper.
 - **Paula.** A looped rotor chop on its own channel, pitched by your speed;
   sound effects on two more; a sampled march on the title.
+- **Music on machines with 1 MB of chip RAM or more** (A500+, A600, A1200):
+  two ProTracker modules by Songerson, *dog68* on the title and *dog70* in the
+  air, kept on the floppy and loaded into chip RAM at boot when there's room.
+  The title then shows a credits page. A 512 KB A500 plays the original title
+  march.
 - **The floppy.** The three theatres, the logos and all the blitter objects
   are packed on the disk and loaded when needed, so the program stays small
   enough for a 1 MB A500.
@@ -183,7 +188,13 @@ packs it with the other blitter objects) and `sound/tools/make_samples.py`
 **Rotor Raider** is authored by **Paul Ross Seibert** and published by
 **Desert Palms Software**. © 2026 Desert Palms Software. All rights reserved.
 
-Design, code, graphics and music: Paul Ross Seibert.
+Design, code, graphics and the title march: Paul Ross Seibert.
+
+Music on 1 MB-chip machines: *dog68* and *dog70* by **Songerson**, from
+[The Mod Archive](https://modarchive.org), licensed
+[CC BY](https://creativecommons.org/licenses/), used unchanged
+(`sound/songerson_-_dog68.mod`, `sound/songerson_-_dog70.mod`; the release
+zip's `CREDITS.txt`).
 An original game, inspired by the helicopter strike games of the 1980s.
 
 Built with:

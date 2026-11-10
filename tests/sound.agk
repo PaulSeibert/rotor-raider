@@ -4,7 +4,8 @@ mark title
 wait 50
 mark title_end
 expect-sound title title_end
-expect-serial "music theme"
+# (dog68 where it fits: 1 MB+ chip)
+expect-serial "music (theme|dog68)"
 press fire 2
 wait-serial "theatre loaded=0"
 press up 40
