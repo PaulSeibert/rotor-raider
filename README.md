@@ -192,6 +192,37 @@ Paula plays channels 0 and 3 on the left, 1 and 2 on the right.
   sounding 86% of the song (`python3 sound/tools/mod_voices.py
   sound/songerson_-_dog70.mod` measures it). The module itself is unchanged.
 
+## Pacing
+
+Measured with `tools/pacing.agk` (all three theatres flown the same scripted
+way in GODMODE: per factory, 12 s weaving and shooting round it, its bombs,
+6 s flying off; about 2.5 minutes a theatre) and `tools/pace.py`, which reads
+what the game prints every 16 frames: planes and enemy shots (flak, missiles)
+on screen, and shots fired at the gunship. Threat = planes + shots on screen.
+Version 1.4, normal difficulty, A500:
+
+| Theatre | threat mean | p90 / max | nothing to dodge | shots on screen mean / p90 | shots fired a minute | rest beats (3 s+ quiet) |
+|---|---|---|---|---|---|---|
+| Coral Reach | 0.64 | 2 / 4 | 65% | 0.56 / 2 | 30 | 12 in 2.3 min |
+| Ember Flats | 1.02 | 3 / 6 | 48% | 0.92 / 3 | 46 | 10 in 2.4 min |
+| Frostline | 1.35 | 4 / 8 | 45% | 1.21 / 4 | 67 | 9 in 2.6 min |
+| *playbook target* | *2.5-3, +50% a level* | *6 / 10-12* | *8-12%* | *0.7-1.5 / 2.5-5* | *30-100* | *a 4-8 s rest every 60-80 s* |
+
+- Shots on screen and shots fired a minute are in the playbook's bands. The
+  threat mean is well under the vertical shooters' 2.5-3, and the quiet share
+  far over: this is an open map where the player picks the fight, so the
+  flights between targets are quiet by design; at a factory the turrets put
+  2-4 threats up. Not tuned.
+- The step between theatres was +23% and +21% (shots fired 30 / 38 / 48 a
+  minute) against the playbook's +50% a level. 1.4 sharpens it: the turrets'
+  cooldown is 35 and 60 frames shorter in Ember Flats and Frostline (was 15
+  and 30) and the jets come 300 and 500 frames sooner (was 250 and 450). Now
+  +59% and +32% threat, +53% and +46% shots fired.
+- The scripted run is quicker than a player, so it rarely reaches the
+  2-minute alert steps or the cruiser, which add to these numbers later in
+  a theatre. Landing on the carrier stays a rest beat: a gun never fires at
+  a gunship on deck.
+
 ## Building
 
 The game is written in C, with the Amiga Game Kit (`agk`) and the
