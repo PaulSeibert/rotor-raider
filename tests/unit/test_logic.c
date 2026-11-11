@@ -817,6 +817,58 @@ static void testCruiserSailsAndShipyardSetsBack(void) {
 	CHECK(g.carrier.hp < hp);                 // it got in range and shelled the carrier
 }
 
+// The cruiser as a set piece: ignored for 45 s it closes in faster and fires
+// twice as often, at 90 s it launches jets at the gunship every 20 s; a hit
+// restarts the clock; sunk, 3000 points and the carrier repaired
+static void testCruiserEscalatesAndRewards(void) {
+	const tTheatreObj pObjs[] = {
+		{OBJ_CARRIER, 40, 60, 20, 60, 0},
+		{OBJ_FACTORY, 30, 30, 0, 0, 0},
+		{OBJ_SHIPYARD, 10, 10, 0, 0, 0},
+	};
+	uint32_t ulSize = makeTheatre(80, 80, pObjs, 3);
+	CHECK(theatreParse(s_pFile, ulSize, &s_sTh));
+	logicInit(&g, s_sTh.map.pTiles, s_sTh.map.uwW, s_sTh.map.uwH);
+	logicLoadTheatre(&g, &s_sTh);
+	g.state = GS_PLAY;
+	g.uwJetTimer = g.uwBomberTimer = g.uwBoatTimer = 60000;
+	g.chop.landed = 0; g.chop.alt = ALT_CRUISE; g.chop.x = 300; g.chop.y = 300;
+	logicSetDifficulty(&g, 0);
+	g.uwBuild = CRUISER_BUILD - 1;
+	step(NONE, 2);
+	CHECK(g.cruiser.active && g.cruiser.ubLevel == 0);
+	uint8_t isUp = 0, ubJets = 0;
+	for(int f = 0; f < CRUISER_STALL1 + 10; ++f) {
+		g.carrier.hp = CARRIER_HP;
+		step(NONE, 1);
+		if(g.events & EV_CRUISER_UP) { isUp = 1; CHECK(f >= CRUISER_STALL1 - 5); }
+	}
+	CHECK(isUp && g.cruiser.ubLevel == 1 && g.msg == MSG_CRUISER_UP);
+	for(int f = 0; f < 600; ++f) { g.carrier.hp = CARRIER_HP; step(NONE, 1); }
+	g.uwBuild = 0;
+	// a hit restarts the clock
+	uint8_t hp = g.cruiser.hp;
+	CHECK(enemiesShot(&g, g.cruiser.x, g.cruiser.y, 0));
+	CHECK(g.cruiser.hp == hp - 1 && g.cruiser.uwStall == 0 && g.cruiser.ubLevel == 1);
+	for(int f = 0; f < CRUISER_STALL2 + 2 * CRUISER_JETS + 10; ++f) {
+		g.carrier.hp = CARRIER_HP;
+		uint8_t n = 0;
+		for(int i = 0; i < AIR_MAX; ++i) n = (uint8_t)(n + g.pAir[i].active);
+		step(NONE, 1);
+		uint8_t m = 0;
+		for(int i = 0; i < AIR_MAX; ++i) m = (uint8_t)(m + g.pAir[i].active);
+		if(m > n) ++ubJets;
+	}
+	CHECK(g.cruiser.ubLevel == 2 && ubJets == 3);  // at 90 s, 110 s and 130 s
+	// sunk: the reward
+	g.carrier.hp = 20;
+	uint32_t ulScore = g.score;
+	g.cruiser.hp = 1;
+	enemiesShot(&g, g.cruiser.x, g.cruiser.y, 0);
+	CHECK(g.cruiser.sunk && !g.cruiser.active && (g.events & EV_CRUISER_SUNK));
+	CHECK(g.score == ulScore + CRUISER_SCORE && g.carrier.hp == CARRIER_HP);
+}
+
 static void testClearTheatreThenNext(void) {
 	newTheatre(800, 300);
 	g.uwJetTimer = g.uwBomberTimer = g.uwBoatTimer = 60000;
@@ -960,6 +1012,7 @@ int main(void) {
 	testCarrierSunkMeansAirstrip();
 	testBoatDeliversAndRepairs();
 	testCruiserSailsAndShipyardSetsBack();
+	testCruiserEscalatesAndRewards();
 	testClearTheatreThenNext();
 	testTitleStartsAGame();
 	testTestJumpOnlyInGodmode();

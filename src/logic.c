@@ -31,21 +31,21 @@ uint8_t logicFactoryHp(const tGame *g) { return s_pFactoryHp[theatreIx(g)]; }
 uint16_t logicCruiserBuild(const tGame *g) { return s_pCruiserBuild[theatreIx(g)]; }
 uint8_t logicMissileAlert(const tGame *g) { return s_pMissileAlert[theatreIx(g)]; }
 
-void logicEventAt(tGame *g, uint16_t uwEv, int16_t x) {
-	g->events |= uwEv;
+void logicEventAt(tGame *g, uint32_t ulEv, int16_t x) {
+	g->events |= ulEv;
 	uint8_t b = 0;
-	while(!(uwEv & 1)) { uwEv >>= 1; ++b; }
+	while(!(ulEv & 1)) { ulEv >>= 1; ++b; }
 	g->pEvX[b] = x;
 }
 
-int16_t logicEventX(const tGame *g, uint16_t uwEv) {
+int16_t logicEventX(const tGame *g, uint32_t ulEv) {
 	uint8_t b = 0;
-	while(uwEv && !(uwEv & 1)) { uwEv >>= 1; ++b; }
-	return g->pEvX[b & 15];
+	while(ulEv && !(ulEv & 1)) { ulEv >>= 1; ++b; }
+	return g->pEvX[b & 31];
 }
 
-uint8_t logicSfxChannel(const tGame *g, uint16_t uwEv) {
-	int16_t sx = (int16_t)(logicEventX(g, uwEv) - g->camX - SCREEN_W / 2);
+uint8_t logicSfxChannel(const tGame *g, uint32_t ulEv) {
+	int16_t sx = (int16_t)(logicEventX(g, ulEv) - g->camX - SCREEN_W / 2);
 	return sx < -SFX_MIDDLE ? SFX_LEFT : sx > SFX_MIDDLE ? SFX_RIGHT : SFX_EITHER;
 }
 
@@ -860,6 +860,8 @@ void logicUpdate(tGame *g, const tInput *pIn) {
 	enemiesUpdate(g);
 	if(g->events & EV_FACTORY) say(g, MSG_FACTORY, 120);
 	if(g->events & EV_CRUISER) say(g, MSG_CRUISER, 200);
+	if(g->events & EV_CRUISER_UP) say(g, MSG_CRUISER_UP, 200);
+	if(g->events & EV_CRUISER_SUNK) say(g, MSG_CRUISER_SUNK, 250);
 	if(g->events & EV_SUNK) say(g, MSG_SUNK, 220);
 	if(g->msgTimer && !--g->msgTimer) g->msg = MSG_NONE;
 	shotsUpdate(g);

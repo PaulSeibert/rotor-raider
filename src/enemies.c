@@ -294,12 +294,13 @@ static void spawnPoint(tGame *g, int16_t *pX, int16_t *pY) {
 	*pY = (int16_t)(g->pSpawnY[i] * TILE + 8);
 }
 
-static void airSpawn(tGame *g, uint8_t ubKind) {
+static void airSpawnAt(tGame *g, uint8_t ubKind, int16_t x, int16_t y) {
 	tAir *a = airNew(g);
 	if(!a) return;
 	a->active = 1;
 	a->kind = ubKind;
-	spawnPoint(g, &a->x, &a->y);
+	a->x = x;
+	a->y = y;
 	a->fx = a->fy = 0;
 	int16_t tx = ubKind == AIR_JET ? g->chop.x : g->carrier.x, ty = ubKind == AIR_JET ? g->chop.y : g->carrier.y;
 	a->heading = logicHeadingTo((int16_t)(tx - a->x), (int16_t)(ty - a->y));
@@ -307,6 +308,12 @@ static void airSpawn(tGame *g, uint8_t ubKind) {
 	a->timer = 60;
 	a->done = 0;
 	a->uwLife = 1500;
+}
+
+static void airSpawn(tGame *g, uint8_t ubKind) {
+	int16_t x, y;
+	spawnPoint(g, &x, &y);
+	airSpawnAt(g, ubKind, x, y);
 }
 
 static uint8_t offMap(const tGame *g, int16_t x, int16_t y) {
@@ -477,13 +484,28 @@ static void cruiserUpdate(tGame *g) {
 		k->dir = k->x < g->carrier.x ? 1 : -1;
 		k->fx = 0;
 		k->timer = 60;
+		k->ubLevel = 0;
+		k->uwStall = 0;
 		logicEventAt(g, EV_CRUISER, k->x);
 		return;
+	}
+	// the anti-stall clock: ignore it and it presses harder
+	if(g->state == GS_PLAY) {
+		if(k->uwStall < 60000) ++k->uwStall;
+		if(k->ubLevel < 2 && k->uwStall >= (k->ubLevel ? CRUISER_STALL2 : CRUISER_STALL1)) {
+			++k->ubLevel;
+			logicEventAt(g, EV_CRUISER_UP, k->x);
+		}
+		if(k->ubLevel == 2 && k->uwStall >= CRUISER_STALL2) {
+			uint16_t t = (uint16_t)(k->uwStall - CRUISER_STALL2);
+			while(t >= CRUISER_JETS) t = (uint16_t)(t - CRUISER_JETS);
+			if(!t) airSpawnAt(g, AIR_JET, k->x, k->y);   // off its deck, at the gunship
+		}
 	}
 	int16_t dx = (int16_t)(g->carrier.x - k->x);
 	if(absw(dx) > CRUISER_RANGE) {
 		k->dir = dx > 0 ? 1 : -1;
-		k->fx = (uint8_t)(k->fx + 8);
+		k->fx = (uint8_t)(k->fx + (k->ubLevel ? 16 : 8));
 		if(k->fx >= 16) {
 			k->fx = 0;
 			k->x = (int16_t)(k->x + k->dir);
@@ -493,7 +515,7 @@ static void cruiserUpdate(tGame *g) {
 		if(k->timer) --k->timer;
 		else {
 			shellFire(g, (int16_t)(k->x + k->dir * 30), k->y);
-			k->timer = 120;
+			k->timer = k->ubLevel ? 60 : 120;
 		}
 	}
 }
@@ -502,13 +524,16 @@ static void cruiserHit(tGame *g, uint8_t ubDamage) {
 	tCruiser *k = &g->cruiser;
 	if(!k->active) return;
 	k->hp = k->hp > ubDamage ? (uint8_t)(k->hp - ubDamage) : 0;
+	k->uwStall = 0;                    // progress: the anti-stall clock starts again
 	boom(g, k->x, k->y, ubDamage > 1);
 	if(!k->hp) {
 		k->active = 0;
 		k->sunk = 1;
 		boom(g, (int16_t)(k->x - 24), k->y, 1);
 		boom(g, (int16_t)(k->x + 24), k->y, 1);
-		score(g, 2000);
+		score(g, CRUISER_SCORE);
+		if(g->carrier.hp) g->carrier.hp = CARRIER_HP;   // the reward: the carrier repaired
+		logicEventAt(g, EV_CRUISER_SUNK, k->x);
 	}
 }
 

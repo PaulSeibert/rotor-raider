@@ -193,10 +193,12 @@ typedef struct {
 	uint8_t active, hp;
 	uint8_t timer;             // between salvoes
 	uint8_t sunk;              // gone for good
+	uint8_t ubLevel;           // escalation: 0, 1 closing in (twice as fast, twice the fire), 2 launching jets
+	uint16_t uwStall;          // frames since it sailed or was last hit (the anti-stall clock)
 } tCruiser;
 
 enum { GS_TITLE, GS_PLAY, GS_LOST, GS_CLEAR, GS_OVER, GS_VICTORY };
-enum { MSG_NONE, MSG_THEATRE, MSG_FACTORY, MSG_CRUISER, MSG_SUNK, MSG_CRUISER_SUNK, MSG_RELOAD, MSG_REPAIR };
+enum { MSG_NONE, MSG_THEATRE, MSG_FACTORY, MSG_CRUISER, MSG_SUNK, MSG_CRUISER_SUNK, MSG_RELOAD, MSG_REPAIR, MSG_CRUISER_UP };
 extern const char *const g_pTheatreName[3];   // (THEATRES)
 
 typedef struct {
@@ -241,8 +243,8 @@ typedef struct {
 	uint8_t pDirty[DIRTY_MAX][2];  // tx, ty
 	uint8_t ubDirty;
 	int16_t camX, camY;        // the play area's top-left, world px
-	uint16_t events;           // EV_* of the latest frame
-	int16_t pEvX[16];          // where (world x) the latest event of each kind happened (by bit)
+	uint32_t events;           // EV_* of the latest frame
+	int16_t pEvX[32];          // where (world x) the latest event of each kind happened (by bit)
 	uint16_t uwShotsFired;     // flak and missiles fired at the gunship (pacing: tools/pace.py)
 } tGame;
 
@@ -262,8 +264,10 @@ typedef struct {
 #define EV_CRUISER   0x1000   // the cruiser set sail
 #define EV_STATE     0x2000
 #define EV_SUNK      0x4000   // the carrier sank
-void logicEventAt(tGame *g, uint16_t uwEv, int16_t x);   // events |= uwEv, which happened at world x
-int16_t logicEventX(const tGame *g, uint16_t uwEv);       // ... where it was (one bit)
+#define EV_CRUISER_UP 0x8000  // the cruiser escalated (ignored too long)
+#define EV_CRUISER_SUNK 0x10000
+void logicEventAt(tGame *g, uint32_t ulEv, int16_t x);   // events |= ulEv, which happened at world x
+int16_t logicEventX(const tGame *g, uint32_t ulEv);       // ... where it was (one bit)
 
 // Stereo: Paula's channels 0 and 3 are on the left, 1 and 2 on the right. The
 // effects' channels (sound.toml sfx_channels) are 3 and 1: an effect plays on
@@ -273,7 +277,7 @@ int16_t logicEventX(const tGame *g, uint16_t uwEv);       // ... where it was (o
 #define SFX_RIGHT 1
 #define SFX_EITHER 0xFF
 #define SFX_MIDDLE 40
-uint8_t logicSfxChannel(const tGame *g, uint16_t uwEv);
+uint8_t logicSfxChannel(const tGame *g, uint32_t ulEv);
 // Pacing (playbook P1): what the gunship must dodge on screen now: planes and
 // the enemy's shots at it (flak, missiles; not the cruiser's shells)
 void logicThreat(const tGame *g, uint8_t *pAir, uint8_t *pShots);
@@ -348,6 +352,15 @@ void logicThreat(const tGame *g, uint8_t *pAir, uint8_t *pShots);
 #define CRUISER_HP 40
 #define CRUISER_RANGE 140
 #define CRUISER_DAMAGE 15
+// The cruiser is the theatre's set piece (playbook P9, F7 anti-stall): ignored
+// (no hit on it) for 45 s it closes in at twice the speed and fires twice as
+// often; at 90 s it starts launching a jet at the gunship every 20 s. A hit
+// restarts the clock (the level stays). Sunk: 3000 points and the carrier
+// repaired.
+#define CRUISER_STALL1 2250
+#define CRUISER_STALL2 4500
+#define CRUISER_JETS 1000
+#define CRUISER_SCORE 3000
 #define ALERT_TIME_FRAMES 6000 // the alert rises a step every 2 minutes...
 #define ALERT_TIME_MAX 2       // ... twice at most
 #define CRASH_FRAMES 100

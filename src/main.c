@@ -832,8 +832,8 @@ static void musicFor(UBYTE ubState) {
 #define SFX_MASK 0x5
 static UBYTE s_ubPanLeft, s_ubPanRight;   // effects played on each side (agkState "pan")
 
-static void sfxAt(UBYTE ubSfx, UWORD uwEv) {
-	UBYTE ubCh = logicSfxChannel(&s_sGame, uwEv);
+static void sfxAt(UBYTE ubSfx, ULONG ulEv) {
+	UBYTE ubCh = logicSfxChannel(&s_sGame, ulEv);
 	if(ubCh == SFX_EITHER) {
 		soundPlay(ubSfx);
 		return;
@@ -847,17 +847,18 @@ static void sfxAt(UBYTE ubSfx, UWORD uwEv) {
 
 __attribute__((noinline)) static void playSounds(UBYTE ubStateBefore) {
 	const tGame *g = &s_sGame;
-	UWORD e = g->events;
+	ULONG e = g->events;
 	if(g->state != ubStateBefore) {
 		musicFor(g->state);
 		if(g->state == GS_TITLE) titleCamFit();
 		if(ubStateBefore == GS_TITLE && g->state == GS_PLAY) soundPlay(SOUND_SFX_START);
 	}
 	if(e & EV_CRASH) sfxAt(SOUND_SFX_CRASH, EV_CRASH);
+	else if(e & EV_CRUISER_SUNK) sfxAt(SOUND_SFX_FACTORY, EV_CRUISER_SUNK);
 	else if(e & EV_FACTORY) sfxAt(SOUND_SFX_FACTORY, EV_FACTORY);
 	else if(e & (EV_BIGBOOM | EV_SUNK)) sfxAt(SOUND_SFX_BIGBOOM, e & EV_BIGBOOM ? EV_BIGBOOM : EV_SUNK);
 	else if(e & EV_BOOM) sfxAt(SOUND_SFX_BOOM, EV_BOOM);
-	if(e & EV_CRUISER) soundPlay(SOUND_SFX_KLAXON);   // (an alarm: from anywhere)
+	if(e & (EV_CRUISER | EV_CRUISER_UP)) soundPlay(SOUND_SFX_KLAXON);   // (an alarm: from anywhere)
 	if(e & EV_HIT) sfxAt(SOUND_SFX_HIT, EV_HIT);
 	if(e & EV_MISSILE) sfxAt(SOUND_SFX_MISSILE, EV_MISSILE);
 	else if(e & EV_FLAK) sfxAt(SOUND_SFX_FLAK, EV_FLAK);
@@ -1155,6 +1156,12 @@ static const char *playMessage(const tGame *g, char *szOut) {
 		case MSG_SUNK:
 			strCat(szOut, &n, "CARRIER SUNK: USE THE AIRSTRIP");
 			break;
+		case MSG_CRUISER_UP:
+			strCat(szOut, &n, g->cruiser.ubLevel >= 2 ? "CRUISER LAUNCHING JETS: SINK IT" : "CRUISER CLOSING IN: SINK IT");
+			break;
+		case MSG_CRUISER_SUNK:
+			strCat(szOut, &n, "CRUISER SUNK  +3000  CARRIER REPAIRED");
+			break;
 		case MSG_RELOAD:
 			strCat(szOut, &n, "BOMBS GONE: RETURN TO THE CARRIER");
 			break;
@@ -1315,10 +1322,11 @@ static void hudBar(UBYTE ubBfr, UBYTE ubCol, UWORD uwY, UBYTE ubValue, UBYTE ubM
 }
 
 __attribute__((noinline)) static void hudUpdate(UBYTE ubBfr) {
-	static UBYTE pDmg[2] = {0xFF, 0xFF}, pShip[2] = {0xFF, 0xFF}, pYard[2] = {0xFF, 0xFF};
+	static UBYTE pDmg[2] = {0xFF, 0xFF}, pShip[2] = {0xFF, 0xFF};
+	static UWORD pYard[2] = {0xFFFF, 0xFFFF};
 	static UBYTE pPending[2] = {0x0F, 0x0F};   // lines (bits) still being typed
 	static ULONG pScore[2] = {~0UL, ~0UL};
-	static UBYTE pGod[2] = {0, 0};
+	static UBYTE pGod[2] = {0, 0}, pCruiserLabel[2] = {0, 0};
 	static UWORD pLineKey[2][HUD_LINES] = {{0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF}, {0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF}};
 	const tGame *g = &s_sGame;
 	// each line is laid out again only when what it shows changes
@@ -1327,7 +1335,7 @@ __attribute__((noinline)) static void hudUpdate(UBYTE ubBfr) {
 			(g->msg == MSG_FACTORY ? g->factoriesLeft << 13 : 0)),
 		(UWORD)(g->lives),
 		(UWORD)(g->chop.bombs | g->difficulty << 4),
-		(UWORD)(g->factoriesLeft | homeArrow(g) << 4),
+		(UWORD)(g->factoriesLeft | homeArrow(g) << 4 | g->cruiser.active << 8),
 	};
 	UBYTE isScore = g->score != pScore[ubBfr];
 	for(UBYTE l = 0; l < HUD_LINES; ++l) {
@@ -1358,6 +1366,12 @@ __attribute__((noinline)) static void hudUpdate(UBYTE ubBfr) {
 			szLine[33] = (char)('0' + g->factoriesLeft);
 			UBYTE ubArrow = homeArrow(g);
 			szLine[7] = ubArrow ? (char)('a' + ubArrow - 1) : ' ';
+			if(g->cruiser.active != pCruiserLabel[ubBfr]) {   // YARD, or the cruiser's bar: ENEMY
+				pCruiserLabel[ubBfr] = g->cruiser.active;
+				for(UBYTE i = 0; s_pHudLabels[l][i]; ++i) szLabel[i] = s_pHudLabels[l][i];
+				if(g->cruiser.active) { szLabel[15] = 'E'; szLabel[16] = 'N'; szLabel[17] = 'E'; szLabel[18] = 'M'; szLabel[19] = 'Y'; }
+				agkTextSet(&s_pHudLabel[ubBfr][l], szLabel);
+			}
 		}
 		if(l == 2 && (g->difficulty == 0) != pGod[ubBfr]) {   // the labels are drawn at the start: only SK/GO changes
 			pGod[ubBfr] = g->difficulty == 0;
@@ -1387,10 +1401,15 @@ __attribute__((noinline)) static void hudUpdate(UBYTE ubBfr) {
 		pShip[ubBfr] = g->carrier.hp;
 		hudBar(ubBfr, 8, 33, g->carrier.hp, CARRIER_HP, 6);
 	}
-	UBYTE ubYard = g->cruiser.active || g->cruiser.sunk ? 48 : (UBYTE)mulDiv(g->uwBuild, 48, logicCruiserBuild(g));
-	if(ubYard != pYard[ubBfr]) {
-		pYard[ubBfr] = ubYard;
-		hudBar(ubBfr, 20, 33, ubYard, 48, g->cruiser.sunk ? 3 : 5);
+	// the shipyard's progress; while the cruiser sails, its strength in red
+	// (blinking once it's escalating); sunk, grey
+	const tCruiser *k = &g->cruiser;
+	UBYTE ubYard = k->active ? (UBYTE)mulDiv(k->hp, 48, CRUISER_HP) : k->sunk ? 48 : (UBYTE)mulDiv(g->uwBuild, 48, logicCruiserBuild(g));
+	UBYTE ubPen = k->active ? (k->ubLevel && (g->frame & 16) ? 6 : 7) : k->sunk ? 3 : 5;
+	UWORD uwKey = (UWORD)(ubYard | ubPen << 8);
+	if(uwKey != pYard[ubBfr]) {
+		pYard[ubBfr] = uwKey;
+		hudBar(ubBfr, 20, 33, ubYard, 48, ubPen);
 	}
 }
 
@@ -1571,12 +1590,14 @@ static void theatreLoad(UBYTE ubTheatre) {
 
 __attribute__((noinline)) static void reportState(void) {
 	const tGame *g = &s_sGame;
-	UWORD e = g->events;
+	ULONG e = g->events;
 	if(e & EV_HIT) agkPrint(g->difficulty ? "AGK hit\n" : "AGK hit ignored (invincible)\n");
 	if(e & EV_CRASH) agkPrint("AGK gunship lost\n");
 	if(e & EV_FACTORY) agkPrint("AGK factory destroyed\n");
 	if(e & EV_CARRIER) agkPrint("AGK carrier hit\n");
 	if(e & EV_CRUISER) agkPrint("AGK cruiser sails\n");
+	if(e & EV_CRUISER_UP) { agkState("cruiser escalates", g->cruiser.ubLevel); agkEnd(); }
+	if(e & EV_CRUISER_SUNK) agkPrint("AGK cruiser sunk\n");
 	if(e & EV_SUNK) agkPrint("AGK carrier sunk\n");
 	if(e & EV_STATE) { agkState("state", g->state); agkEnd(); }
 	if(!(g->frame & 15) || g->frame <= 3) {
