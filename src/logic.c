@@ -31,6 +31,24 @@ uint8_t logicFactoryHp(const tGame *g) { return s_pFactoryHp[theatreIx(g)]; }
 uint16_t logicCruiserBuild(const tGame *g) { return s_pCruiserBuild[theatreIx(g)]; }
 uint8_t logicMissileAlert(const tGame *g) { return s_pMissileAlert[theatreIx(g)]; }
 
+void logicEventAt(tGame *g, uint16_t uwEv, int16_t x) {
+	g->events |= uwEv;
+	uint8_t b = 0;
+	while(!(uwEv & 1)) { uwEv >>= 1; ++b; }
+	g->pEvX[b] = x;
+}
+
+int16_t logicEventX(const tGame *g, uint16_t uwEv) {
+	uint8_t b = 0;
+	while(uwEv && !(uwEv & 1)) { uwEv >>= 1; ++b; }
+	return g->pEvX[b & 15];
+}
+
+uint8_t logicSfxChannel(const tGame *g, uint16_t uwEv) {
+	int16_t sx = (int16_t)(logicEventX(g, uwEv) - g->camX - SCREEN_W / 2);
+	return sx < -SFX_MIDDLE ? SFX_LEFT : sx > SFX_MIDDLE ? SFX_RIGHT : SFX_EITHER;
+}
+
 static void say(tGame *g, uint8_t ubMsg, uint16_t uwFrames) {
 	g->msg = ubMsg;
 	g->msgTimer = uwFrames;
@@ -248,7 +266,7 @@ static void boomAt(tGame *g, int16_t x, int16_t y, uint8_t isBig) {
 	b->frame = 0;
 	b->timer = 0;
 	b->big = isBig;
-	g->events |= isBig ? EV_BIGBOOM : EV_BOOM;
+	logicEventAt(g, isBig ? EV_BIGBOOM : EV_BOOM, x);
 }
 
 // The structure whose footprint holds world point (x, y), or 0
@@ -301,7 +319,7 @@ static void structDamage(tGame *g, tStruct *s, uint8_t ubDmg) {
 	if(s->type == OBJ_FACTORY) {
 		s->stage = 2;
 		--g->factoriesLeft;
-		g->events |= EV_FACTORY;
+		logicEventAt(g, EV_FACTORY, cx);
 		addScore(g, 1000);
 	}
 	else addScore(g, s->type == OBJ_RADAR ? 250 : 100);
@@ -322,7 +340,7 @@ static void cannonFire(tGame *g) {
 		s->vx = (int16_t)(c->vx + ((g_pHeadX[c->heading] * CANNON_SPEED + 32) >> 6));
 		s->vy = (int16_t)(c->vy + ((g_pHeadY[c->heading] * CANNON_SPEED + 32) >> 6));
 		s->alt = c->alt;
-		g->events |= EV_CANNON;
+		logicEventAt(g, EV_CANNON, c->x);
 		return;
 	}
 }
@@ -355,7 +373,7 @@ static void bombDrop(tGame *g) {
 		s->vy = bombVy(c);
 		s->alt = c->alt;
 		--c->bombs;
-		g->events |= EV_BOMB;
+		logicEventAt(g, EV_BOMB, c->x);
 		if(!c->bombs) say(g, MSG_RELOAD, 250);
 		return;
 	}
@@ -505,7 +523,7 @@ static uint8_t chopperDeck(tGame *g, uint8_t isPush) {
 	if(isPush) {
 		c->landTimer = 0;
 		if(c->landed || c->alt < ALT_CRUISE) {
-			if(c->landed) g->events |= EV_TAKEOFF;
+			if(c->landed) logicEventAt(g, EV_TAKEOFF, c->x);
 			c->landed = 0;
 			++c->alt;
 		}
@@ -527,7 +545,7 @@ static uint8_t chopperDeck(tGame *g, uint8_t isPush) {
 	if(c->alt) {
 		if(!--c->alt) {
 			c->landed = 1;
-			g->events |= EV_LANDED;
+			logicEventAt(g, EV_LANDED, c->x);
 		}
 		return 1;
 	}
@@ -730,7 +748,7 @@ uint8_t logicHomeBearing(const tGame *g, uint8_t *pHeading, int16_t *pDist) {
 void logicHitChopper(tGame *g, uint8_t ubDamage) {
 	tChopper *c = &g->chop;
 	if(g->state != GS_PLAY || c->crashed) return;
-	g->events |= EV_HIT;
+	logicEventAt(g, EV_HIT, c->x);
 	if(g->difficulty == 0) return;        // invincible: it shows, nothing more
 	uint8_t ubBefore = c->damage;
 	c->damage = c->damage + ubDamage >= DAMAGE_MAX ? DAMAGE_MAX : (uint8_t)(c->damage + ubDamage);
@@ -740,7 +758,7 @@ void logicHitChopper(tGame *g, uint8_t ubDamage) {
 	c->landed = 0;
 	if(!c->alt) c->alt = 1;
 	if(g->lives) --g->lives;
-	g->events |= EV_CRASH;
+	logicEventAt(g, EV_CRASH, c->x);
 	setState(g, GS_LOST, LOST_FRAMES);
 }
 

@@ -104,7 +104,7 @@ static void boom(tGame *g, int16_t x, int16_t y, uint8_t isBig) {
 	b->frame = 0;
 	b->timer = 0;
 	b->big = isBig;
-	g->events |= isBig ? EV_BIGBOOM : EV_BOOM;
+	logicEventAt(g, isBig ? EV_BIGBOOM : EV_BOOM, x);
 }
 
 static void score(tGame *g, uint16_t uwPts) {
@@ -150,7 +150,7 @@ static void flakFire(tGame *g, int16_t x, int16_t y) {
 	s->fx = s->fy = 0;
 	headingVel(logicHeadingTo((int16_t)(tx - x), (int16_t)(ty - y)), FLAK_SPEED, &s->vx, &s->vy);
 	s->life = (uint8_t)(flakFrames(dist((int16_t)(tx - x), (int16_t)(ty - y))) + 1);
-	g->events |= EV_FLAK;
+	logicEventAt(g, EV_FLAK, x);
 }
 
 static void missileFire(tGame *g, int16_t x, int16_t y) {
@@ -164,7 +164,7 @@ static void missileFire(tGame *g, int16_t x, int16_t y) {
 	s->heading = logicHeadingTo((int16_t)(g->chop.x - x), (int16_t)(g->chop.y - y));
 	headingVel(s->heading, MISSILE_SPEED, &s->vx, &s->vy);
 	s->life = MISSILE_LIFE;
-	g->events |= EV_MISSILE;
+	logicEventAt(g, EV_MISSILE, x);
 }
 
 static void shellFire(tGame *g, int16_t x, int16_t y) {
@@ -178,17 +178,17 @@ static void shellFire(tGame *g, int16_t x, int16_t y) {
 	int16_t tx = g->carrier.x, ty = g->carrier.y;
 	headingVel(logicHeadingTo((int16_t)(tx - x), (int16_t)(ty - y)), SHELL_SPEED, &s->vx, &s->vy);
 	s->life = (uint8_t)(third(dist((int16_t)(tx - x), (int16_t)(ty - y))) + 1);
-	g->events |= EV_FLAK;
+	logicEventAt(g, EV_FLAK, x);
 }
 
 static void carrierHit(tGame *g, uint8_t ubDamage) {
 	tCarrier *k = &g->carrier;
 	if(!k->hp) return;
 	k->hp = k->hp > ubDamage ? (uint8_t)(k->hp - ubDamage) : 0;
-	g->events |= EV_CARRIER;
+	logicEventAt(g, EV_CARRIER, k->x);
 	boom(g, (int16_t)(k->x - 20 + (int16_t)(logicRandom(g) & 31)), k->y, 1);
 	if(!k->hp) {
-		g->events |= EV_SUNK;
+		logicEventAt(g, EV_SUNK, k->x);
 		if(g->chop.landed && g->state == GS_PLAY) logicHitChopper(g, 255);
 	}
 }
@@ -475,7 +475,7 @@ static void cruiserUpdate(tGame *g) {
 		k->dir = k->x < g->carrier.x ? 1 : -1;
 		k->fx = 0;
 		k->timer = 60;
-		g->events |= EV_CRUISER;
+		logicEventAt(g, EV_CRUISER, k->x);
 		return;
 	}
 	int16_t dx = (int16_t)(g->carrier.x - k->x);

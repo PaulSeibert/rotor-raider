@@ -242,6 +242,7 @@ typedef struct {
 	uint8_t ubDirty;
 	int16_t camX, camY;        // the play area's top-left, world px
 	uint16_t events;           // EV_* of the latest frame
+	int16_t pEvX[16];          // where (world x) the latest event of each kind happened (by bit)
 } tGame;
 
 // events bits
@@ -260,6 +261,18 @@ typedef struct {
 #define EV_CRUISER   0x1000   // the cruiser set sail
 #define EV_STATE     0x2000
 #define EV_SUNK      0x4000   // the carrier sank
+void logicEventAt(tGame *g, uint16_t uwEv, int16_t x);   // events |= uwEv, which happened at world x
+int16_t logicEventX(const tGame *g, uint16_t uwEv);       // ... where it was (one bit)
+
+// Stereo: Paula's channels 0 and 3 are on the left, 1 and 2 on the right. The
+// effects' channels (sound.toml sfx_channels) are 3 and 1: an effect plays on
+// the side of the screen it happens on; within SFX_MIDDLE px of the middle,
+// on whichever ptplayer finds free.
+#define SFX_LEFT 3
+#define SFX_RIGHT 1
+#define SFX_EITHER 0xFF
+#define SFX_MIDDLE 40
+uint8_t logicSfxChannel(const tGame *g, uint16_t uwEv);
 
 // --------------------------------------------------------------- tuning ---
 #define V_MAX 40               // 2.5 px a frame

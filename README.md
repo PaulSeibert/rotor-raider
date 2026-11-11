@@ -151,8 +151,9 @@ the score bar (SK3) and stays until you change it.
 - **The Desert Palms Software logo** at boot: 16 colours with 4 reloaded on
   every line, about 320 colours in one picture, faded in and out by the
   copper.
-- **Paula.** A looped rotor chop on its own channel, pitched by your speed;
-  sound effects on two more; a sampled march on the title.
+- **Paula.** A looped rotor chop pitched by your speed, sound effects in
+  stereo on the side of the screen they happen on, a sampled march on the
+  title (the channel policy is below).
 - **Music on machines with 1 MB of chip RAM or more** (A500+, A600, A1200):
   two ProTracker modules by Songerson, *dog68* on the title and *dog70* in the
   air, kept on the floppy and loaded into chip RAM at boot when there's room.
@@ -161,6 +162,35 @@ the score bar (SK3) and stays until you change it.
 - **The floppy.** The three theatres, the logos and all the blitter objects
   are packed on the disk and loaded when needed, so the program stays small
   enough for a 1 MB A500.
+
+## Sound: who gets Paula's four channels
+
+Paula plays channels 0 and 3 on the left, 1 and 2 on the right.
+
+| Channel | Side | In the air | On the title and jingles |
+|---|---|---|---|
+| 0 | left | the rotor while it has the channel, otherwise music | music |
+| 1 | right | music; effects on the right of the screen | music; menu effects |
+| 2 | right | music | music |
+| 3 | left | music; effects on the left of the screen | music; menu effects |
+
+- **Effects** (`sound/sound.toml`, `sfx_channels = [1, 3]`) play on the side
+  of the screen where they happen: flak, missiles, explosions and factories
+  by their position, the gunship's own sounds by where it is. Within 40 px of
+  the middle they take whichever of the two is free. The cruiser's klaxon
+  comes from anywhere. An effect takes its channel from the music for its
+  length (0.08-0.5 s); those are the bass and drum voices, which come back at
+  their next note.
+- **The rotor** borrows channel 0. In the air the music is Songerson's
+  *dog70*, whose voice 0 (string chords) is silent for its first 61 s, after
+  which the song loops on all four voices. So the rotor loops on channel 0
+  while there's no music in the air (a 512 KB A500, or music off with M) and
+  for *dog70*'s first 59 s; then it fades out and gives the channel back, and
+  from there it's a short fading chop at take-off and landing, on the effect
+  channel of the gunship's side. Before 1.4 the rotor kept channel 2 all game,
+  and *dog70* lost its voice 2, the analog string pad: its loudest voice,
+  sounding 86% of the song (`python3 sound/tools/mod_voices.py
+  sound/songerson_-_dog70.mod` measures it). The module itself is unchanged.
 
 ## Building
 

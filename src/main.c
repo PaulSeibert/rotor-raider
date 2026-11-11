@@ -824,6 +824,27 @@ static void musicFor(UBYTE ubState) {
 	s_ulSongStart = timerGet();
 }
 
+// An effect on the side of the screen it happens on: left on channel 3,
+// right on 1 (Paula's stereo), near the middle on either. soundPlay picks
+// the channel itself, among those ptplayer's music mask leaves it: so for one
+// effect the mask leaves only that side's channel. (sound.toml sfx_channels =
+// [1, 3]: mask 0x5 otherwise.)
+#define SFX_MASK 0x5
+static UBYTE s_ubPanLeft, s_ubPanRight;   // effects played on each side (agkState "pan")
+
+static void sfxAt(UBYTE ubSfx, UWORD uwEv) {
+	UBYTE ubCh = logicSfxChannel(&s_sGame, uwEv);
+	if(ubCh == SFX_EITHER) {
+		soundPlay(ubSfx);
+		return;
+	}
+	if(ubCh == SFX_LEFT) ++s_ubPanLeft;
+	else ++s_ubPanRight;
+	ptplayerSetMusicChannelMask((UBYTE)(0xF & ~(1 << ubCh)));
+	soundPlay(ubSfx);
+	ptplayerSetMusicChannelMask(SFX_MASK);
+}
+
 __attribute__((noinline)) static void playSounds(UBYTE ubStateBefore) {
 	const tGame *g = &s_sGame;
 	UWORD e = g->events;
@@ -832,20 +853,20 @@ __attribute__((noinline)) static void playSounds(UBYTE ubStateBefore) {
 		if(g->state == GS_TITLE) titleCamFit();
 		if(ubStateBefore == GS_TITLE && g->state == GS_PLAY) soundPlay(SOUND_SFX_START);
 	}
-	if(e & EV_CRASH) soundPlay(SOUND_SFX_CRASH);
-	else if(e & EV_FACTORY) soundPlay(SOUND_SFX_FACTORY);
-	else if(e & (EV_BIGBOOM | EV_SUNK)) soundPlay(SOUND_SFX_BIGBOOM);
-	else if(e & EV_BOOM) soundPlay(SOUND_SFX_BOOM);
-	if(e & EV_CRUISER) soundPlay(SOUND_SFX_KLAXON);
-	if(e & EV_HIT) soundPlay(SOUND_SFX_HIT);
-	if(e & EV_MISSILE) soundPlay(SOUND_SFX_MISSILE);
-	else if(e & EV_FLAK) soundPlay(SOUND_SFX_FLAK);
-	if(e & EV_CANNON) soundPlay(SOUND_SFX_CANNON);
-	if(e & EV_BOMB) soundPlay(SOUND_SFX_BOMB);
-	if(e & EV_LANDED) soundPlay(SOUND_SFX_LAND);
+	if(e & EV_CRASH) sfxAt(SOUND_SFX_CRASH, EV_CRASH);
+	else if(e & EV_FACTORY) sfxAt(SOUND_SFX_FACTORY, EV_FACTORY);
+	else if(e & (EV_BIGBOOM | EV_SUNK)) sfxAt(SOUND_SFX_BIGBOOM, e & EV_BIGBOOM ? EV_BIGBOOM : EV_SUNK);
+	else if(e & EV_BOOM) sfxAt(SOUND_SFX_BOOM, EV_BOOM);
+	if(e & EV_CRUISER) soundPlay(SOUND_SFX_KLAXON);   // (an alarm: from anywhere)
+	if(e & EV_HIT) sfxAt(SOUND_SFX_HIT, EV_HIT);
+	if(e & EV_MISSILE) sfxAt(SOUND_SFX_MISSILE, EV_MISSILE);
+	else if(e & EV_FLAK) sfxAt(SOUND_SFX_FLAK, EV_FLAK);
+	if(e & EV_CANNON) sfxAt(SOUND_SFX_CANNON, EV_CANNON);
+	if(e & EV_BOMB) sfxAt(SOUND_SFX_BOMB, EV_BOMB);
+	if(e & EV_LANDED) sfxAt(SOUND_SFX_LAND, EV_LANDED);
 	// the music has channel 0: the rotor is a short burst on an effect channel
 	if((e & (EV_TAKEOFF | EV_LANDED)) && !s_isRotorOwner && s_pBurstWave && g->state == GS_PLAY) {
-		ptplayerSfxPlay(&s_pBurst[e & EV_TAKEOFF ? 0 : 1], g->chop.x - g->camX < SCREEN_W / 2 ? 3 : 1, 40, 2);
+		ptplayerSfxPlay(&s_pBurst[e & EV_TAKEOFF ? 0 : 1], g->chop.x - g->camX < SCREEN_W / 2 ? SFX_LEFT : SFX_RIGHT, 40, 2);
 		agkPrint("AGK rotor burst\n");
 	}
 }
@@ -1584,6 +1605,8 @@ __attribute__((noinline)) static void reportState(void) {
 		agkState("air", ubA);
 		agkState("boats", ubB);
 		agkState("alert", logicAlert(g));
+		agkState("panl", s_ubPanLeft);
+		agkState("panr", s_ubPanRight);
 		agkEnd();
 	}
 }

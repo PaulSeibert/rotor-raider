@@ -584,6 +584,33 @@ static void testTellHoldsFireAndCantBeCut(void) {
 
 // Flak flies at 1.5 px a frame (playbook F2: 1-1.5) and still bursts where it
 // was aimed: by a hovering gunship
+// Effects are panned by where they happen on screen: a turret's flak on the
+// left of the screen plays on a left channel, a boom on the right on a right
+// one, the gunship's own gun (mid-screen) on either
+static void testSfxPanning(void) {
+	turretGame();
+	g.camX = 520 - 60;                            // the turret 60 px from the left edge
+	step(NONE, 1 + TURRET_TELL_NORMAL);
+	CHECK(g.events & EV_FLAK);
+	CHECK(logicEventX(&g, EV_FLAK) == 520);
+	g.camX = 520 - 60;
+	CHECK(logicSfxChannel(&g, EV_FLAK) == SFX_LEFT);
+	g.camX = 520 - 300;
+	CHECK(logicSfxChannel(&g, EV_FLAK) == SFX_RIGHT);
+	g.camX = 520 - 170;
+	CHECK(logicSfxChannel(&g, EV_FLAK) == SFX_EITHER);
+	CHECK(SFX_LEFT == 0 || SFX_LEFT == 3);        // Paula's left pair
+	CHECK(SFX_RIGHT == 1 || SFX_RIGHT == 2);      // and right pair
+	newGame(STEER_CLASSIC, 400, 400);
+	g.chop.landed = 0;
+	step((tInput){.fire = 1}, 1);
+	step(NONE, 1);
+	step((tInput){.fire = 1}, 1);
+	CHECK(g.events & EV_CANNON);
+	g.camX = (int16_t)(g.chop.x - SCREEN_W / 2);
+	CHECK(logicSfxChannel(&g, EV_CANNON) == SFX_EITHER);
+}
+
 static void testFlakSpeed(void) {
 	turretGame();
 	step(NONE, 1 + TURRET_TELL_NORMAL);
@@ -904,6 +931,7 @@ int main(void) {
 	testNoShotWithoutATell();
 	testTellHoldsFireAndCantBeCut();
 	testFlakSpeed();
+	testSfxPanning();
 	testFlakHurtsAndGodmodeShrugs();
 	testCrashRespawnAndGameOver();
 	testMissilesFromAlertThree();
