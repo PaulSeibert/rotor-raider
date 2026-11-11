@@ -678,15 +678,37 @@ __attribute__((noinline)) static void objectsQueue(UBYTE ubBfr) {
 }
 
 // ------------------------------------------------------------------ rotor ---
-// Paula channel 2: a looped chop (two blade passes of filtered noise) made at
-// startup; the period follows the airspeed, the volume the state (as in
-// Rotor Rescue).
+// A looped chop (two blade passes of filtered noise) made at startup; the
+// period follows the airspeed, the volume the state (as in Rotor Rescue).
+//
+// Paula's channels (1.4; the README's "Sound" has the whole policy):
+//   0 (left)  the rotor while it has the channel, else music
+//   1 (right) music; effects on the right of the screen (or the middle)
+//   2 (right) music
+//   3 (left)  music; effects on the left of the screen (or the middle)
+// Before 1.4 the rotor kept channel 2 all game, so the music in the air
+// (Songerson's dog70, 1 MB chip) lost its voice 2: the analog string pad, its
+// loudest voice, sounding 86% of the song. Now the rotor borrows channel 0,
+// which dog70 leaves silent for its first 8 positions (512 rows, 61 s; then it
+// loops positions 8-13 with all four voices: sound/tools/mod_voices.py). So the
+// rotor loops on channel 0 whenever there's no music in the air (a 512 KB
+// A500, or M), and for dog70's first 59 s, then fades out and hands channel 0
+// back. From then on it's a short fading chop on an effect channel at take-off
+// and landing, and the song keeps all four voices.
 
-#define ROTOR_CHANNEL 2
+#define ROTOR_CHANNEL 0
 #define ROTOR_SAMPLES 1200
-static BYTE *s_pRotorWave;   // chip RAM
+#define DOG70_VOICE0_FREE 2950  // VBLs from dog70's start: its voice 0 comes in at 3072 ticks (~3067 VBLs)
+#define ROTOR_FADE 64           // VBLs fading out before channel 0 goes back to the music
+#define BURST_SAMPLES 8000      // the take-off/landing chop: 0.68 s at period 300 (1 MB chip only)
+static BYTE *s_pRotorWave;      // chip RAM
+static BYTE *s_pBurstWave;      // chip RAM (with dog70 only)
+static tPtplayerSfx s_pBurst[2];   // take-off (higher), landing
+static UBYTE s_isRotorOwner;    // channel 0 is the rotor's: ptplayer leaves it alone
+static UBYTE s_isMusicOn = 1, s_ubSong = 0xFF;
+static ULONG s_ulSongStart;     // timerGet() when s_ubSong started
 
-static void rotorCreate(void) {
+static void rotorCreate(UBYTE isBurst) {
 	s_pRotorWave = memAllocChip(ROTOR_SAMPLES);
 	UWORD uwLfsr = 0x1D2B;
 	WORD wLow = 0, wLow2 = 0;
@@ -703,13 +725,44 @@ static void rotorCreate(void) {
 		WORD v = (WORD)((wLow2 * wEnv) >> 5);
 		s_pRotorWave[i] = (BYTE)(v > 127 ? 127 : v < -128 ? -128 : v);
 	}
-	ptplayerSetChannelsForPlayer(0xF & ~(1 << ROTOR_CHANNEL));
+	if(isBurst) {
+		// the chop fading away over 0.68 s (it starts at full: the gunship
+		// lifting off or setting down, then the music takes over)
+		s_pBurstWave = memAllocChip(BURST_SAMPLES);
+		UWORD j = 0;
+		for(UWORD i = 0; i < BURST_SAMPLES; ++i) {
+			WORD wEnv = (WORD)(64 - (WORD)(mulw((WORD)i, 64) / BURST_SAMPLES));
+			s_pBurstWave[i] = (BYTE)(mulw(s_pRotorWave[j], wEnv) >> 6);
+			if(++j == ROTOR_SAMPLES) j = 0;
+		}
+		s_pBurstWave[0] = s_pBurstWave[1] = 0;
+		for(UBYTE k = 0; k < 2; ++k) {
+			s_pBurst[k].pData = (UWORD *)s_pBurstWave;
+			s_pBurst[k].uwWordLength = BURST_SAMPLES / 2;
+			s_pBurst[k].uwPeriod = k ? 300 : 260;
+		}
+	}
+}
+
+// Channel 0 to the rotor (ptplayer leaves it), or back to the music
+static void rotorOwn(UBYTE isOwn) {
+	if(isOwn == s_isRotorOwner) return;
+	s_isRotorOwner = isOwn;
 	volatile struct AudChannel *pAud = &g_pCustom->aud[ROTOR_CHANNEL];
-	pAud->ac_ptr = (UWORD *)s_pRotorWave;
-	pAud->ac_len = ROTOR_SAMPLES / 2;
 	pAud->ac_vol = 0;
-	pAud->ac_per = 400;
-	g_pCustom->dmacon = DMAF_SETCLR | (DMAF_AUD0 << ROTOR_CHANNEL);
+	g_pCustom->dmacon = DMAF_AUD0 << ROTOR_CHANNEL;
+	if(isOwn) {
+		ptplayerSetChannelsForPlayer(0xF & ~(1 << ROTOR_CHANNEL));
+		pAud->ac_ptr = (UWORD *)s_pRotorWave;
+		pAud->ac_len = ROTOR_SAMPLES / 2;
+		pAud->ac_per = 300;
+		g_pCustom->dmacon = DMAF_SETCLR | (DMAF_AUD0 << ROTOR_CHANNEL);
+		agkPrint("AGK rotor on channel 0\n");
+	}
+	else {
+		ptplayerSetChannelsForPlayer(0xF);
+		agkPrint("AGK channel 0 back to the music\n");
+	}
 }
 
 static UBYTE s_isPaused;
@@ -717,13 +770,27 @@ static UBYTE s_isPaused;
 __attribute__((noinline)) static void rotorUpdate(void) {
 	const tGame *g = &s_sGame;
 	const tChopper *c = &g->chop;
+	UBYTE isOwn = 0, ubFade = ROTOR_FADE;
+	if(g->state == GS_PLAY || g->state == GS_LOST) {
+		if(s_ubSong != SOUND_MUSIC_DOG70) isOwn = 1;   // no music in the air
+		else {
+			ULONG ulT = timerGet() - s_ulSongStart;
+			if(ulT < DOG70_VOICE0_FREE) {
+				isOwn = 1;
+				if(ulT + ROTOR_FADE > DOG70_VOICE0_FREE) ubFade = (UBYTE)(DOG70_VOICE0_FREE - ulT);
+			}
+		}
+	}
+	rotorOwn(isOwn);
+	if(!isOwn) return;
 	UBYTE ubVol = 0;
 	UWORD uwPer = 300;
-	if((g->state == GS_PLAY || g->state == GS_LOST) && !(c->crashed && !c->alt)) {
+	if(!(c->crashed && !c->alt)) {
 		WORD wSx = c->vx < 0 ? (WORD)-c->vx : c->vx, wSy = c->vy < 0 ? (WORD)-c->vy : c->vy;
 		WORD wSpeed = wSx > wSy ? wSx : wSy;
 		uwPer = (UWORD)(300 - wSpeed - (c->landed ? 0 : 24) + (c->crashed ? 60 : 0));
 		ubVol = c->landed ? 16 : 30;
+		ubVol = (UBYTE)(mulw(ubVol, ubFade) >> 6);
 	}
 	if(s_isPaused) ubVol = 0;
 	volatile struct AudChannel *pAud = &g_pCustom->aud[ROTOR_CHANNEL];
@@ -732,14 +799,13 @@ __attribute__((noinline)) static void rotorUpdate(void) {
 }
 
 static void rotorDestroy(void) {
-	g_pCustom->dmacon = DMAF_AUD0 << ROTOR_CHANNEL;
-	g_pCustom->aud[ROTOR_CHANNEL].ac_vol = 0;
+	rotorOwn(0);
 	memFree(s_pRotorWave, ROTOR_SAMPLES);
+	if(s_pBurstWave) memFree(s_pBurstWave, BURST_SAMPLES);
 }
 
 // ---------------------------------------------------------------- sound ---
 
-static UBYTE s_isMusicOn = 1, s_ubSong = 0xFF;
 static UBYTE s_ubModules;          // Songerson's modules in chip RAM (0 on a 512 KB-chip A500)
 
 static void musicFor(UBYTE ubState) {
@@ -755,6 +821,7 @@ static void musicFor(UBYTE ubState) {
 	s_ubSong = ubSong;
 	if(ubSong == 0xFF) soundMusicStop();
 	else soundMusicStart(ubSong);
+	s_ulSongStart = timerGet();
 }
 
 __attribute__((noinline)) static void playSounds(UBYTE ubStateBefore) {
@@ -776,6 +843,11 @@ __attribute__((noinline)) static void playSounds(UBYTE ubStateBefore) {
 	if(e & EV_CANNON) soundPlay(SOUND_SFX_CANNON);
 	if(e & EV_BOMB) soundPlay(SOUND_SFX_BOMB);
 	if(e & EV_LANDED) soundPlay(SOUND_SFX_LAND);
+	// the music has channel 0: the rotor is a short burst on an effect channel
+	if((e & (EV_TAKEOFF | EV_LANDED)) && !s_isRotorOwner && s_pBurstWave && g->state == GS_PLAY) {
+		ptplayerSfxPlay(&s_pBurst[e & EV_TAKEOFF ? 0 : 1], g->chop.x - g->camX < SCREEN_W / 2 ? 3 : 1, 40, 2);
+		agkPrint("AGK rotor burst\n");
+	}
 }
 
 // ----------------------------------------------------------------- text ---
@@ -1432,7 +1504,7 @@ void genericCreate(void) {
 	s_ubModules = (UBYTE)(isDog68 + isDog70);
 	agkState("modules", s_ubModules);
 	agkEnd();
-	rotorCreate();
+	rotorCreate(isDog70);
 	musicFor(s_sGame.state);
 
 	viewLoad(s_pView);
