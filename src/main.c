@@ -140,10 +140,12 @@ __attribute__((noinline)) static void chopperUpdate(UBYTE ubBfr) {
 }
 
 // ------------------------------------------------------------ gun sprites ---
-// The turrets' AA guns ride hardware sprites 4-7: two attached pairs (15
-// colours), each reused down the screen (a gun's control words follow the
-// one above it in the list), so neither the blitter nor the CPU draws them.
-// A gun the pairs have no room for on its lines goes to the blitter. Each
+// The turrets' AA guns ride hardware sprites 4-5: an attached pair (15
+// colours) reused down the screen (a gun's control words follow the one
+// above it in the list), so neither the blitter nor the CPU draws them.
+// A gun the pair has no room for on its lines goes to the blitter.
+// Not the 6/7 pair: DDFSTRT $30 (fine scroll) takes sprite 7's DMA, so a gun
+// there showed only sprite 6's 3-colour half - pale grey (found 2026-11-11). Each
 // copper buffer has its own lists; a slot's image is copied in only when
 // its frame changes.
 
@@ -196,7 +198,6 @@ __attribute__((noinline)) static void gunsUpdate(UBYTE ubBfr, tDraw *pDraw, UBYT
 		WORD y = pD->y;
 		UBYTE p;
 		if(y >= pNextY[0] && pSlots[0] < GUN_SLOTS) p = 0;
-		else if(y >= pNextY[1] && pSlots[1] < GUN_SLOTS) p = 1;
 		else continue;                        // no room on its lines: the blitter's
 		UBYTE s = pSlots[p]++;
 		pNextY[p] = (WORD)(y + 17);           // a line between one and the next
