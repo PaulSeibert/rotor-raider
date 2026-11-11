@@ -1,0 +1,1013 @@
+# Pacing: all three theatres flown the same scripted way, in GODMODE (so a
+# run lasts), for tools/pace.py: per factory, a jump to it (Ctrl+L, 9), 12 s
+# weaving and shooting round it, a jump back, its bombs, then 6 s flying off.
+# About 2.3 minutes a theatre. Not part of agk test (it's long):
+#   agk run -f tools/pacing.agk -o build/pacing && python3 tools/pace.py build/pacing/serial.txt
+wait-serial "AGK t0"
+wait 10
+press fire 2
+wait-serial "theatre loaded=0"
+wait 10
+key 0x63
+key 0x28
+wait 5
+key 0x0A
+wait 30
+# theatre 1
+key 0x63
+key 0x28
+wait 5
+key 0x09
+wait 20
+press up+fire 30
+press up 30
+press left+up 14
+press up+fire 30
+press up 6
+press right+up 28
+wait 6
+press up+fire 30
+press up 30
+press left+up 14
+press up+fire 30
+press up 6
+press right+up 28
+wait 6
+press up+fire 30
+press up 30
+press left+up 14
+press up+fire 30
+press up 6
+press right+up 28
+wait 6
+press up+fire 30
+press up 30
+press left+up 14
+press up+fire 30
+press up 6
+press right+up 28
+wait 6
+press up+fire 30
+press up 30
+press left+up 14
+press up+fire 30
+press up 6
+press right+up 28
+wait 6
+key 0x63
+key 0x28
+wait 5
+key 0x09
+wait 20
+press fire2 2
+wait 40
+press fire2 2
+wait 40
+press fire2 2
+wait 40
+press right+up 10
+press up 290
+key 0x63
+key 0x28
+wait 5
+key 0x09
+wait 20
+press up+fire 30
+press up 30
+press left+up 14
+press up+fire 30
+press up 6
+press right+up 28
+wait 6
+press up+fire 30
+press up 30
+press left+up 14
+press up+fire 30
+press up 6
+press right+up 28
+wait 6
+press up+fire 30
+press up 30
+press left+up 14
+press up+fire 30
+press up 6
+press right+up 28
+wait 6
+press up+fire 30
+press up 30
+press left+up 14
+press up+fire 30
+press up 6
+press right+up 28
+wait 6
+press up+fire 30
+press up 30
+press left+up 14
+press up+fire 30
+press up 6
+press right+up 28
+wait 6
+key 0x63
+key 0x28
+wait 5
+key 0x09
+wait 20
+press fire2 2
+wait 40
+press fire2 2
+wait 40
+press fire2 2
+wait 40
+press left+up 10
+press up 290
+key 0x63
+key 0x28
+wait 5
+key 0x09
+wait 20
+press up+fire 30
+press up 30
+press left+up 14
+press up+fire 30
+press up 6
+press right+up 28
+wait 6
+press up+fire 30
+press up 30
+press left+up 14
+press up+fire 30
+press up 6
+press right+up 28
+wait 6
+press up+fire 30
+press up 30
+press left+up 14
+press up+fire 30
+press up 6
+press right+up 28
+wait 6
+press up+fire 30
+press up 30
+press left+up 14
+press up+fire 30
+press up 6
+press right+up 28
+wait 6
+press up+fire 30
+press up 30
+press left+up 14
+press up+fire 30
+press up 6
+press right+up 28
+wait 6
+key 0x63
+key 0x28
+wait 5
+key 0x09
+wait 20
+press fire2 2
+wait 40
+press fire2 2
+wait 40
+press fire2 2
+wait 40
+press right+up 10
+press up 290
+key 0x63
+key 0x28
+wait 5
+key 0x09
+wait 20
+press up+fire 30
+press up 30
+press left+up 14
+press up+fire 30
+press up 6
+press right+up 28
+wait 6
+press up+fire 30
+press up 30
+press left+up 14
+press up+fire 30
+press up 6
+press right+up 28
+wait 6
+press up+fire 30
+press up 30
+press left+up 14
+press up+fire 30
+press up 6
+press right+up 28
+wait 6
+press up+fire 30
+press up 30
+press left+up 14
+press up+fire 30
+press up 6
+press right+up 28
+wait 6
+press up+fire 30
+press up 30
+press left+up 14
+press up+fire 30
+press up 6
+press right+up 28
+wait 6
+key 0x63
+key 0x28
+wait 5
+key 0x09
+wait 20
+press fire2 2
+wait 40
+press fire2 2
+wait 40
+press fire2 2
+wait 40
+press left+up 10
+press up 290
+key 0x63
+key 0x28
+wait 5
+key 0x09
+wait 20
+press up+fire 30
+press up 30
+press left+up 14
+press up+fire 30
+press up 6
+press right+up 28
+wait 6
+press up+fire 30
+press up 30
+press left+up 14
+press up+fire 30
+press up 6
+press right+up 28
+wait 6
+press up+fire 30
+press up 30
+press left+up 14
+press up+fire 30
+press up 6
+press right+up 28
+wait 6
+press up+fire 30
+press up 30
+press left+up 14
+press up+fire 30
+press up 6
+press right+up 28
+wait 6
+press up+fire 30
+press up 30
+press left+up 14
+press up+fire 30
+press up 6
+press right+up 28
+wait 6
+key 0x63
+key 0x28
+wait 5
+key 0x09
+wait 20
+press fire2 2
+wait 40
+press fire2 2
+wait 40
+press fire2 2
+wait 40
+press right+up 10
+press up 290
+key 0x63
+key 0x28
+wait 5
+key 0x09
+wait 20
+press up+fire 30
+press up 30
+press left+up 14
+press up+fire 30
+press up 6
+press right+up 28
+wait 6
+press up+fire 30
+press up 30
+press left+up 14
+press up+fire 30
+press up 6
+press right+up 28
+wait 6
+press up+fire 30
+press up 30
+press left+up 14
+press up+fire 30
+press up 6
+press right+up 28
+wait 6
+press up+fire 30
+press up 30
+press left+up 14
+press up+fire 30
+press up 6
+press right+up 28
+wait 6
+press up+fire 30
+press up 30
+press left+up 14
+press up+fire 30
+press up 6
+press right+up 28
+wait 6
+key 0x63
+key 0x28
+wait 5
+key 0x09
+wait 20
+press fire2 2
+wait 40
+press fire2 2
+wait 40
+press fire2 2
+wait 40
+press left+up 10
+press up 290
+wait-serial "theatre loaded=1" 900
+wait 60
+# theatre 2
+key 0x63
+key 0x28
+wait 5
+key 0x09
+wait 20
+press up+fire 30
+press up 30
+press left+up 14
+press up+fire 30
+press up 6
+press right+up 28
+wait 6
+press up+fire 30
+press up 30
+press left+up 14
+press up+fire 30
+press up 6
+press right+up 28
+wait 6
+press up+fire 30
+press up 30
+press left+up 14
+press up+fire 30
+press up 6
+press right+up 28
+wait 6
+press up+fire 30
+press up 30
+press left+up 14
+press up+fire 30
+press up 6
+press right+up 28
+wait 6
+press up+fire 30
+press up 30
+press left+up 14
+press up+fire 30
+press up 6
+press right+up 28
+wait 6
+key 0x63
+key 0x28
+wait 5
+key 0x09
+wait 20
+press fire2 2
+wait 40
+press fire2 2
+wait 40
+press fire2 2
+wait 40
+press fire2 2
+wait 40
+press right+up 10
+press up 290
+key 0x63
+key 0x28
+wait 5
+key 0x09
+wait 20
+press up+fire 30
+press up 30
+press left+up 14
+press up+fire 30
+press up 6
+press right+up 28
+wait 6
+press up+fire 30
+press up 30
+press left+up 14
+press up+fire 30
+press up 6
+press right+up 28
+wait 6
+press up+fire 30
+press up 30
+press left+up 14
+press up+fire 30
+press up 6
+press right+up 28
+wait 6
+press up+fire 30
+press up 30
+press left+up 14
+press up+fire 30
+press up 6
+press right+up 28
+wait 6
+press up+fire 30
+press up 30
+press left+up 14
+press up+fire 30
+press up 6
+press right+up 28
+wait 6
+key 0x63
+key 0x28
+wait 5
+key 0x09
+wait 20
+press fire2 2
+wait 40
+press fire2 2
+wait 40
+press fire2 2
+wait 40
+press fire2 2
+wait 40
+press left+up 10
+press up 290
+key 0x63
+key 0x28
+wait 5
+key 0x09
+wait 20
+press up+fire 30
+press up 30
+press left+up 14
+press up+fire 30
+press up 6
+press right+up 28
+wait 6
+press up+fire 30
+press up 30
+press left+up 14
+press up+fire 30
+press up 6
+press right+up 28
+wait 6
+press up+fire 30
+press up 30
+press left+up 14
+press up+fire 30
+press up 6
+press right+up 28
+wait 6
+press up+fire 30
+press up 30
+press left+up 14
+press up+fire 30
+press up 6
+press right+up 28
+wait 6
+press up+fire 30
+press up 30
+press left+up 14
+press up+fire 30
+press up 6
+press right+up 28
+wait 6
+key 0x63
+key 0x28
+wait 5
+key 0x09
+wait 20
+press fire2 2
+wait 40
+press fire2 2
+wait 40
+press fire2 2
+wait 40
+press fire2 2
+wait 40
+press right+up 10
+press up 290
+key 0x63
+key 0x28
+wait 5
+key 0x09
+wait 20
+press up+fire 30
+press up 30
+press left+up 14
+press up+fire 30
+press up 6
+press right+up 28
+wait 6
+press up+fire 30
+press up 30
+press left+up 14
+press up+fire 30
+press up 6
+press right+up 28
+wait 6
+press up+fire 30
+press up 30
+press left+up 14
+press up+fire 30
+press up 6
+press right+up 28
+wait 6
+press up+fire 30
+press up 30
+press left+up 14
+press up+fire 30
+press up 6
+press right+up 28
+wait 6
+press up+fire 30
+press up 30
+press left+up 14
+press up+fire 30
+press up 6
+press right+up 28
+wait 6
+key 0x63
+key 0x28
+wait 5
+key 0x09
+wait 20
+press fire2 2
+wait 40
+press fire2 2
+wait 40
+press fire2 2
+wait 40
+press fire2 2
+wait 40
+press left+up 10
+press up 290
+key 0x63
+key 0x28
+wait 5
+key 0x09
+wait 20
+press up+fire 30
+press up 30
+press left+up 14
+press up+fire 30
+press up 6
+press right+up 28
+wait 6
+press up+fire 30
+press up 30
+press left+up 14
+press up+fire 30
+press up 6
+press right+up 28
+wait 6
+press up+fire 30
+press up 30
+press left+up 14
+press up+fire 30
+press up 6
+press right+up 28
+wait 6
+press up+fire 30
+press up 30
+press left+up 14
+press up+fire 30
+press up 6
+press right+up 28
+wait 6
+press up+fire 30
+press up 30
+press left+up 14
+press up+fire 30
+press up 6
+press right+up 28
+wait 6
+key 0x63
+key 0x28
+wait 5
+key 0x09
+wait 20
+press fire2 2
+wait 40
+press fire2 2
+wait 40
+press fire2 2
+wait 40
+press fire2 2
+wait 40
+press right+up 10
+press up 290
+key 0x63
+key 0x28
+wait 5
+key 0x09
+wait 20
+press up+fire 30
+press up 30
+press left+up 14
+press up+fire 30
+press up 6
+press right+up 28
+wait 6
+press up+fire 30
+press up 30
+press left+up 14
+press up+fire 30
+press up 6
+press right+up 28
+wait 6
+press up+fire 30
+press up 30
+press left+up 14
+press up+fire 30
+press up 6
+press right+up 28
+wait 6
+press up+fire 30
+press up 30
+press left+up 14
+press up+fire 30
+press up 6
+press right+up 28
+wait 6
+press up+fire 30
+press up 30
+press left+up 14
+press up+fire 30
+press up 6
+press right+up 28
+wait 6
+key 0x63
+key 0x28
+wait 5
+key 0x09
+wait 20
+press fire2 2
+wait 40
+press fire2 2
+wait 40
+press fire2 2
+wait 40
+press fire2 2
+wait 40
+press left+up 10
+press up 290
+wait-serial "theatre loaded=2" 900
+wait 60
+# theatre 3
+key 0x63
+key 0x28
+wait 5
+key 0x09
+wait 20
+press up+fire 30
+press up 30
+press left+up 14
+press up+fire 30
+press up 6
+press right+up 28
+wait 6
+press up+fire 30
+press up 30
+press left+up 14
+press up+fire 30
+press up 6
+press right+up 28
+wait 6
+press up+fire 30
+press up 30
+press left+up 14
+press up+fire 30
+press up 6
+press right+up 28
+wait 6
+press up+fire 30
+press up 30
+press left+up 14
+press up+fire 30
+press up 6
+press right+up 28
+wait 6
+press up+fire 30
+press up 30
+press left+up 14
+press up+fire 30
+press up 6
+press right+up 28
+wait 6
+key 0x63
+key 0x28
+wait 5
+key 0x09
+wait 20
+press fire2 2
+wait 40
+press fire2 2
+wait 40
+press fire2 2
+wait 40
+press fire2 2
+wait 40
+press fire2 2
+wait 40
+press right+up 10
+press up 290
+key 0x63
+key 0x28
+wait 5
+key 0x09
+wait 20
+press up+fire 30
+press up 30
+press left+up 14
+press up+fire 30
+press up 6
+press right+up 28
+wait 6
+press up+fire 30
+press up 30
+press left+up 14
+press up+fire 30
+press up 6
+press right+up 28
+wait 6
+press up+fire 30
+press up 30
+press left+up 14
+press up+fire 30
+press up 6
+press right+up 28
+wait 6
+press up+fire 30
+press up 30
+press left+up 14
+press up+fire 30
+press up 6
+press right+up 28
+wait 6
+press up+fire 30
+press up 30
+press left+up 14
+press up+fire 30
+press up 6
+press right+up 28
+wait 6
+key 0x63
+key 0x28
+wait 5
+key 0x09
+wait 20
+press fire2 2
+wait 40
+press fire2 2
+wait 40
+press fire2 2
+wait 40
+press fire2 2
+wait 40
+press fire2 2
+wait 40
+press left+up 10
+press up 290
+key 0x63
+key 0x28
+wait 5
+key 0x09
+wait 20
+press up+fire 30
+press up 30
+press left+up 14
+press up+fire 30
+press up 6
+press right+up 28
+wait 6
+press up+fire 30
+press up 30
+press left+up 14
+press up+fire 30
+press up 6
+press right+up 28
+wait 6
+press up+fire 30
+press up 30
+press left+up 14
+press up+fire 30
+press up 6
+press right+up 28
+wait 6
+press up+fire 30
+press up 30
+press left+up 14
+press up+fire 30
+press up 6
+press right+up 28
+wait 6
+press up+fire 30
+press up 30
+press left+up 14
+press up+fire 30
+press up 6
+press right+up 28
+wait 6
+key 0x63
+key 0x28
+wait 5
+key 0x09
+wait 20
+press fire2 2
+wait 40
+press fire2 2
+wait 40
+press fire2 2
+wait 40
+press fire2 2
+wait 40
+press fire2 2
+wait 40
+press right+up 10
+press up 290
+key 0x63
+key 0x28
+wait 5
+key 0x09
+wait 20
+press up+fire 30
+press up 30
+press left+up 14
+press up+fire 30
+press up 6
+press right+up 28
+wait 6
+press up+fire 30
+press up 30
+press left+up 14
+press up+fire 30
+press up 6
+press right+up 28
+wait 6
+press up+fire 30
+press up 30
+press left+up 14
+press up+fire 30
+press up 6
+press right+up 28
+wait 6
+press up+fire 30
+press up 30
+press left+up 14
+press up+fire 30
+press up 6
+press right+up 28
+wait 6
+press up+fire 30
+press up 30
+press left+up 14
+press up+fire 30
+press up 6
+press right+up 28
+wait 6
+key 0x63
+key 0x28
+wait 5
+key 0x09
+wait 20
+press fire2 2
+wait 40
+press fire2 2
+wait 40
+press fire2 2
+wait 40
+press fire2 2
+wait 40
+press fire2 2
+wait 40
+press left+up 10
+press up 290
+key 0x63
+key 0x28
+wait 5
+key 0x09
+wait 20
+press up+fire 30
+press up 30
+press left+up 14
+press up+fire 30
+press up 6
+press right+up 28
+wait 6
+press up+fire 30
+press up 30
+press left+up 14
+press up+fire 30
+press up 6
+press right+up 28
+wait 6
+press up+fire 30
+press up 30
+press left+up 14
+press up+fire 30
+press up 6
+press right+up 28
+wait 6
+press up+fire 30
+press up 30
+press left+up 14
+press up+fire 30
+press up 6
+press right+up 28
+wait 6
+press up+fire 30
+press up 30
+press left+up 14
+press up+fire 30
+press up 6
+press right+up 28
+wait 6
+key 0x63
+key 0x28
+wait 5
+key 0x09
+wait 20
+press fire2 2
+wait 40
+press fire2 2
+wait 40
+press fire2 2
+wait 40
+press fire2 2
+wait 40
+press fire2 2
+wait 40
+press right+up 10
+press up 290
+key 0x63
+key 0x28
+wait 5
+key 0x09
+wait 20
+press up+fire 30
+press up 30
+press left+up 14
+press up+fire 30
+press up 6
+press right+up 28
+wait 6
+press up+fire 30
+press up 30
+press left+up 14
+press up+fire 30
+press up 6
+press right+up 28
+wait 6
+press up+fire 30
+press up 30
+press left+up 14
+press up+fire 30
+press up 6
+press right+up 28
+wait 6
+press up+fire 30
+press up 30
+press left+up 14
+press up+fire 30
+press up 6
+press right+up 28
+wait 6
+press up+fire 30
+press up 30
+press left+up 14
+press up+fire 30
+press up 6
+press right+up 28
+wait 6
+key 0x63
+key 0x28
+wait 5
+key 0x09
+wait 20
+press fire2 2
+wait 40
+press fire2 2
+wait 40
+press fire2 2
+wait 40
+press fire2 2
+wait 40
+press fire2 2
+wait 40
+press left+up 10
+press up 290
+expect-serial "theatre loaded=2"

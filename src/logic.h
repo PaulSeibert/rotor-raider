@@ -243,6 +243,7 @@ typedef struct {
 	int16_t camX, camY;        // the play area's top-left, world px
 	uint16_t events;           // EV_* of the latest frame
 	int16_t pEvX[16];          // where (world x) the latest event of each kind happened (by bit)
+	uint16_t uwShotsFired;     // flak and missiles fired at the gunship (pacing: tools/pace.py)
 } tGame;
 
 // events bits
@@ -273,6 +274,9 @@ int16_t logicEventX(const tGame *g, uint16_t uwEv);       // ... where it was (o
 #define SFX_EITHER 0xFF
 #define SFX_MIDDLE 40
 uint8_t logicSfxChannel(const tGame *g, uint16_t uwEv);
+// Pacing (playbook P1): what the gunship must dodge on screen now: planes and
+// the enemy's shots at it (flak, missiles; not the cruiser's shells)
+void logicThreat(const tGame *g, uint8_t *pAir, uint8_t *pShots);
 
 // --------------------------------------------------------------- tuning ---
 #define V_MAX 40               // 2.5 px a frame

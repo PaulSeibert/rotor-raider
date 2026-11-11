@@ -1605,6 +1605,11 @@ __attribute__((noinline)) static void reportState(void) {
 		agkState("air", ubA);
 		agkState("boats", ubB);
 		agkState("alert", logicAlert(g));
+		UBYTE ubTA, ubTS;
+		logicThreat(g, &ubTA, &ubTS);
+		agkState("tair", ubTA);
+		agkState("tshots", ubTS);
+		agkState("fired", g->uwShotsFired);
 		agkState("panl", s_ubPanLeft);
 		agkState("panr", s_ubPanRight);
 		agkEnd();

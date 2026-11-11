@@ -22,8 +22,8 @@ static const int16_t s_pAlertBomber[6] = {0, 150, 300, 450, 600, 750};
 static const int16_t s_pAlertBoat[6] = {0, 50, 100, 150, 200, 250};
 static const int16_t s_pAlertCool[6] = {0, 8, 16, 24, 32, 40};
 // each theatre presses harder: Coral Reach, Ember Flats, Frostline
-static const int8_t s_pThTurretCool[THEATRES] = {0, -15, -30};
-static const int16_t s_pThJet[THEATRES] = {0, -250, -450};
+static const int8_t s_pThTurretCool[THEATRES] = {0, -35, -60};
+static const int16_t s_pThJet[THEATRES] = {0, -300, -500};
 static const int16_t s_pThBomber[THEATRES] = {0, -300, -600};
 static const int16_t s_pThBoat[THEATRES] = {0, -100, -200};
 static inline uint8_t thIx(const tGame *g) { return g->theatre < THEATRES ? g->theatre : THEATRES - 1; }
@@ -151,6 +151,7 @@ static void flakFire(tGame *g, int16_t x, int16_t y) {
 	headingVel(logicHeadingTo((int16_t)(tx - x), (int16_t)(ty - y)), FLAK_SPEED, &s->vx, &s->vy);
 	s->life = (uint8_t)(flakFrames(dist((int16_t)(tx - x), (int16_t)(ty - y))) + 1);
 	logicEventAt(g, EV_FLAK, x);
+	++g->uwShotsFired;
 }
 
 static void missileFire(tGame *g, int16_t x, int16_t y) {
@@ -165,6 +166,7 @@ static void missileFire(tGame *g, int16_t x, int16_t y) {
 	headingVel(s->heading, MISSILE_SPEED, &s->vx, &s->vy);
 	s->life = MISSILE_LIFE;
 	logicEventAt(g, EV_MISSILE, x);
+	++g->uwShotsFired;
 }
 
 static void shellFire(tGame *g, int16_t x, int16_t y) {
@@ -269,7 +271,7 @@ static void turretsUpdate(tGame *g) {
 		// the cooldown includes the tell, so a gun fires as often as before 1.4
 		int16_t wCool = (int16_t)(TURRET_COOL - ubTell + s_pTurretCool[g->difficulty] + s_pThTurretCool[thIx(g)] -
 			s_pAlertCool[logicAlert(g)] + (logicRandom(g) & 31));
-		s->timer = (uint16_t)(wCool < 30 - TURRET_TELL_NORMAL ? 30 - TURRET_TELL_NORMAL : wCool);
+		s->timer = (uint16_t)(wCool < 30 - ubTell ? 30 - ubTell : wCool);   // (a round every 30 frames at most)
 	}
 }
 
@@ -560,6 +562,24 @@ void enemiesBlast(tGame *g, int16_t x, int16_t y) {
 	if(k->active && absw((int16_t)(k->x - x)) < 48 + BLAST_R && absw((int16_t)(k->y - y)) < 16 + BLAST_R) {
 		cruiserHit(g, BOMB_DAMAGE);
 	}
+}
+
+// --------------------------------------------------------------- pacing ---
+
+static inline uint8_t inView(const tGame *g, int16_t x, int16_t y) {
+	int16_t sx = (int16_t)(x - g->camX), sy = (int16_t)(y - g->camY);
+	return sx >= 0 && sx < SCREEN_W && sy >= 0 && sy < PLAY_H;
+}
+
+void logicThreat(const tGame *g, uint8_t *pAir, uint8_t *pShots) {
+	uint8_t a = 0, s = 0;
+	for(uint8_t i = 0; i < AIR_MAX; ++i) a = (uint8_t)(a + (g->pAir[i].active && inView(g, g->pAir[i].x, g->pAir[i].y)));
+	for(uint8_t i = 0; i < ESHOT_MAX; ++i) {
+		const tEShot *e = &g->pEShots[i];
+		s = (uint8_t)(s + (e->active && e->kind != ESHOT_SHELL && inView(g, e->x, e->y)));
+	}
+	*pAir = a;
+	*pShots = s;
 }
 
 // ---------------------------------------------------------------- frame ---

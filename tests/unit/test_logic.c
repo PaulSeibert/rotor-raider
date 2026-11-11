@@ -611,6 +611,25 @@ static void testSfxPanning(void) {
 	CHECK(logicSfxChannel(&g, EV_CANNON) == SFX_EITHER);
 }
 
+// The pacing counts: flak in view is threat, the cruiser's shells aren't
+static void testThreatCounts(void) {
+	turretGame();
+	g.camX = 520 - 160; g.camY = 440 - 100;
+	uint16_t uwFired = g.uwShotsFired;
+	step(NONE, 1 + TURRET_TELL_NORMAL);
+	uint8_t a, s;
+	g.camX = 520 - 160; g.camY = 440 - 100;
+	logicThreat(&g, &a, &s);
+	CHECK(s == 1 && a == 0 && g.uwShotsFired == uwFired + 1);
+	g.pEShots[0].kind = ESHOT_SHELL;
+	logicThreat(&g, &a, &s);
+	CHECK(s == 0);
+	g.camX = 2000;
+	g.pEShots[0].kind = ESHOT_FLAK;
+	logicThreat(&g, &a, &s);
+	CHECK(s == 0);
+}
+
 static void testFlakSpeed(void) {
 	turretGame();
 	step(NONE, 1 + TURRET_TELL_NORMAL);
@@ -932,6 +951,7 @@ int main(void) {
 	testTellHoldsFireAndCantBeCut();
 	testFlakSpeed();
 	testSfxPanning();
+	testThreatCounts();
 	testFlakHurtsAndGodmodeShrugs();
 	testCrashRespawnAndGameOver();
 	testMissilesFromAlertThree();
