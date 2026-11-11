@@ -307,7 +307,7 @@ typedef struct {
 #define TURRET_TELL 0x40       // ... | this while it winds up to fire: the barrels glow, held still
 #define TURRET_TELL_NORMAL 16  // frames of the tell before every round (by difficulty: 24 .. 8)
 #define TURRET_COOL 110        // frames between rounds, the tell included (difficulty and alert take some off)
-#define FLAK_SPEED 48          // 3 px a frame
+#define FLAK_SPEED 24          // 1.5 px a frame (3 before 1.4: playbook F2 wants 1-1.5)
 #define SHELL_SPEED 48         // the cruiser's shells at the carrier: 3 px a frame
 #define FLAK_R 14              // a burst this close hurts
 #define FLAK_DAMAGE 8

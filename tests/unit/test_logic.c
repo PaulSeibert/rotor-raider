@@ -582,6 +582,21 @@ static void testTellHoldsFireAndCantBeCut(void) {
 	CHECK(g.pStructs[1].timer + 4 >= uwTimer && g.pStructs[1].timer && !g.pEShots[0].active);
 }
 
+// Flak flies at 1.5 px a frame (playbook F2: 1-1.5) and still bursts where it
+// was aimed: by a hovering gunship
+static void testFlakSpeed(void) {
+	turretGame();
+	step(NONE, 1 + TURRET_TELL_NORMAL);
+	const tEShot *e = &g.pEShots[0];
+	CHECK(e->active && e->kind == ESHOT_FLAK);
+	int16_t ax = e->vx < 0 ? (int16_t)-e->vx : e->vx, ay = e->vy < 0 ? (int16_t)-e->vy : e->vy;
+	int16_t wSpeed = ax > ay ? (int16_t)(ax + (ay * 41 >> 7)) : (int16_t)(ay + (ax * 41 >> 7));   // ~ hypot
+	CHECK(wSpeed >= 21 && wSpeed <= 27);          // 24: 1.5 px a frame
+	CHECK(FLAK_SPEED >= 16 && FLAK_SPEED <= 24);
+}
+
+// The gun turns a step at a time to aim at the gunship (north-east of it
+// here), flashes when it fires, and is drawn on its turret; a crater has none
 static void testTurretGunAimsAndFlashes(void) {
 	turretGame();
 	g.pStructs[1].link = 5;                       // aimed south-west
@@ -888,6 +903,7 @@ int main(void) {
 	testTurretGunAimsAndFlashes();
 	testNoShotWithoutATell();
 	testTellHoldsFireAndCantBeCut();
+	testFlakSpeed();
 	testFlakHurtsAndGodmodeShrugs();
 	testCrashRespawnAndGameOver();
 	testMissilesFromAlertThree();
