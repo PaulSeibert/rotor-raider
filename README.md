@@ -37,7 +37,8 @@ All versions are on the [Releases page](https://github.com/PaulSeibert/rotor-rai
 - a new title logo;
 - music by Songerson on Amigas with 1 MB of chip RAM or more, with a credits page on the title;
 - classic steering now backs off tail first when you hold down after stopping (let go to hover);
-- the title logo no longer flickers after a game over.
+- the title logo no longer flickers after a game over;
+- AA guns no longer turn into grey blobs when two of them share the same lines on screen.
 
 **Requirements:** an Amiga 500 with **1 MB of RAM** (512K chip + 512K
 expansion), Kickstart 1.3 or later, PAL. It runs at 50 frames a second on a
