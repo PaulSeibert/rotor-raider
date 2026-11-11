@@ -832,8 +832,19 @@ static void musicFor(UBYTE ubState) {
 #define SFX_MASK 0x5
 static UBYTE s_ubPanLeft, s_ubPanRight;   // effects played on each side (agkState "pan")
 
+// At most one effect a side a picture, two in all, and a minor one (a pop,
+// the gun, the skids) only alone: playSounds asks in order of importance, and
+// with two effect channels a later one would only cut an earlier one short
+// (or be refused). Each ptplayerSfxPlay costs ~4% of an A500 frame.
+static UBYTE s_ubSfxSides, s_ubSfxCount;
+
 static void sfxAt(UBYTE ubSfx, ULONG ulEv) {
 	UBYTE ubCh = logicSfxChannel(&s_sGame, ulEv);
+	UBYTE ubSide = ubCh == SFX_LEFT ? 1 : ubCh == SFX_RIGHT ? 2 : 0;
+	UBYTE isMinor = ubSfx == SOUND_SFX_FLAK || ubSfx == SOUND_SFX_CANNON || ubSfx == SOUND_SFX_LAND;   // (priority 1)
+	if(s_ubSfxCount >= (isMinor ? 1 : 2) || (s_ubSfxSides & ubSide)) return;
+	++s_ubSfxCount;
+	s_ubSfxSides |= ubSide;
 	if(ubCh == SFX_EITHER) {
 		soundPlay(ubSfx);
 		return;
@@ -848,6 +859,7 @@ static void sfxAt(UBYTE ubSfx, ULONG ulEv) {
 __attribute__((noinline)) static void playSounds(UBYTE ubStateBefore) {
 	const tGame *g = &s_sGame;
 	ULONG e = g->events;
+	s_ubSfxSides = s_ubSfxCount = 0;
 	if(g->state != ubStateBefore) {
 		musicFor(g->state);
 		if(g->state == GS_TITLE) titleCamFit();
@@ -1626,8 +1638,14 @@ __attribute__((noinline)) static void reportState(void) {
 		agkState("air", ubA);
 		agkState("boats", ubB);
 		agkState("alert", logicAlert(g));
+		agkEnd();
+	}
+	else if((g->frame & 15) == 8) {
+		// the pacing counts (tools/pace.py), half-way between: serial text costs frame time
 		UBYTE ubTA, ubTS;
 		logicThreat(g, &ubTA, &ubTS);
+		agkState("pace frame", g->frame);
+		agkState("state", g->state);
 		agkState("tair", ubTA);
 		agkState("tshots", ubTS);
 		agkState("fired", g->uwShotsFired);

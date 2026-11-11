@@ -25,7 +25,7 @@ for line in open(sys.argv[1], errors="replace"):
     if "tair=" not in line or "state=1" not in line:
         continue
     d = dict(re.findall(r"(\w+)=(-?\d+)", line))
-    runs.setdefault(th, []).append((int(d["frame"]), int(d["tair"]), int(d["tshots"]), int(d["fired"])))
+    runs.setdefault(th, []).append((int(d.get("frame", 0)), int(d["tair"]), int(d["tshots"]), int(d["fired"])))
 
 
 def pct(v, p):

@@ -206,6 +206,15 @@ void logicLoadTheatre(tGame *g, const tTheatre *pTh) {
 		if(o->type == OBJ_FACTORY) ++g->factoriesLeft;
 		structTiles(g, s);      // intact again (a theatre played before has craters)
 	}
+	// the turrets top to bottom: logicDraw looks only at the rows on screen
+	for(uint8_t i = 1; i < g->ubTurrets; ++i) {
+		uint8_t t = g->pTurrets[i], k = i;
+		while(k && g->pStructs[g->pTurrets[k - 1]].ty > g->pStructs[t].ty) {
+			g->pTurrets[k] = g->pTurrets[k - 1];
+			--k;
+		}
+		g->pTurrets[k] = t;
+	}
 	g->ubDirty = 0;
 	g->ubFactories = g->factoriesLeft;
 	g->wantTheatre = 0xFF;
@@ -273,9 +282,11 @@ static void boomAt(tGame *g, int16_t x, int16_t y, uint8_t isBig) {
 static tStruct *structAt(tGame *g, int16_t x, int16_t y, int16_t r) {
 	for(uint8_t i = 0; i < g->ubStructs; ++i) {
 		tStruct *s = &g->pStructs[i];
+		int16_t x0 = (int16_t)(s->tx * TILE), y0 = (int16_t)(s->ty * TILE);
+		// (most are far away: no structure is over 5 tiles wide or 3 high)
+		if(x + r < x0 || x - r >= x0 + 5 * TILE || y + r < y0 || y - r >= y0 + 3 * TILE) continue;
 		uint8_t w, h;
 		structSize(s->type, &w, &h);
-		int16_t x0 = (int16_t)(s->tx * TILE), y0 = (int16_t)(s->ty * TILE);
 		if(x + r >= x0 && x - r < x0 + w * TILE && y + r >= y0 && y - r < y0 + h * TILE) return s;
 	}
 	return 0;
@@ -879,7 +890,7 @@ static inline uint8_t onScreen(int16_t sx, int16_t sy, uint16_t w, uint8_t h) {
 	return sx > -(int16_t)w && sx < SCREEN_W && sy > -(int16_t)h && sy < PLAY_H;
 }
 
-static uint8_t drawAdd(tDraw *pOut, uint8_t n, int16_t sx, int16_t sy, uint8_t bob, uint8_t frame) {
+static inline __attribute__((always_inline)) uint8_t drawAdd(tDraw *pOut, uint8_t n, int16_t sx, int16_t sy, uint8_t bob, uint8_t frame) {
 	if(n >= DRAW_MAX || !onScreen(sx, sy, g_pBobW[bob], g_pBobH[bob])) return n;
 	pOut[n].x = sx;
 	pOut[n].y = sy;
@@ -894,8 +905,12 @@ uint8_t logicDraw(const tGame *g, tDraw *pOut) {
 	const tCarrier *k = &g->carrier;
 	// the turrets' guns, on their tiles: aimed, glowing as they wind up (the
 	// tell, frames 16-23) and flashing as they fire (8-15)
+	// (sorted top to bottom: from the first row on screen to the last)
+	int16_t wRow0 = (int16_t)((cy - 15) >> 4), wRow1 = (int16_t)((cy + PLAY_H - 1) >> 4);
 	for(uint8_t i = 0; i < g->ubTurrets; ++i) {
 		const tStruct *s = &g->pStructs[g->pTurrets[i]];
+		if((int16_t)s->ty < wRow0) continue;
+		if((int16_t)s->ty > wRow1) break;
 		if(!s->hp) continue;
 		uint8_t f = (uint8_t)((s->link & 7) | (s->link & TURRET_FLASH ? 8 : s->link & TURRET_TELL ? 16 : 0));
 		n = drawAdd(pOut, n, (int16_t)((s->tx << 4) - cx), (int16_t)((s->ty << 4) - cy), BOB_GUN, f);

@@ -213,7 +213,7 @@ typedef struct {
 	tStruct pStructs[STRUCT_MAX];
 	uint8_t ubStructs;
 	uint8_t ubTurrets;
-	uint8_t pTurrets[STRUCT_MAX];   // the turrets' indices in pStructs (their guns are drawn each picture)
+	uint8_t pTurrets[STRUCT_MAX];   // the turrets' indices in pStructs, top to bottom (their guns are drawn each picture)
 	uint8_t factoriesLeft;
 	tShot pShots[SHOT_MAX];        // the cannon's
 	tShot pBombs[BOMB_FALL_MAX];

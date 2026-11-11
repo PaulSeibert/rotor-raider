@@ -630,6 +630,32 @@ static void testThreatCounts(void) {
 	CHECK(s == 0);
 }
 
+// The turrets' list is top to bottom, and every gun on screen is drawn
+static void testTurretsSortedAndAllDrawn(void) {
+	const tTheatreObj pObjs[] = {
+		{OBJ_CARRIER, 20, 60, 10, 40, 0},
+		{OBJ_TURRET, 10, 30, 0, 0, 0}, {OBJ_TURRET, 12, 5, 0, 0, 0}, {OBJ_TURRET, 14, 18, 0, 0, 0},
+		{OBJ_TURRET, 3, 12, 0, 0, 0}, {OBJ_TURRET, 9, 13, 0, 0, 0},
+	};
+	uint32_t ulSize = makeTheatre(80, 80, pObjs, 6);
+	CHECK(theatreParse(s_pFile, ulSize, &s_sTh));
+	logicInit(&g, s_sTh.map.pTiles, s_sTh.map.uwW, s_sTh.map.uwH);
+	logicLoadTheatre(&g, &s_sTh);
+	CHECK(g.ubTurrets == 5);
+	for(uint8_t i = 1; i < g.ubTurrets; ++i) CHECK(g.pStructs[g.pTurrets[i - 1]].ty <= g.pStructs[g.pTurrets[i]].ty);
+	tDraw pDraw[DRAW_MAX];
+	for(int16_t cy = 0; cy < 400; cy = (int16_t)(cy + 7)) {
+		g.camX = 0; g.camY = cy;
+		uint8_t n = logicDraw(&g, pDraw), ubGuns = 0, ubWant = 0;
+		for(uint8_t i = 0; i < n; ++i) ubGuns = (uint8_t)(ubGuns + (pDraw[i].bob == BOB_GUN));
+		for(uint8_t i = 0; i < g.ubTurrets; ++i) {
+			int16_t sy = (int16_t)((g.pStructs[g.pTurrets[i]].ty << 4) - cy);
+			ubWant = (uint8_t)(ubWant + (sy > -16 && sy < PLAY_H));
+		}
+		CHECK(ubGuns == ubWant);
+	}
+}
+
 static void testFlakSpeed(void) {
 	turretGame();
 	step(NONE, 1 + TURRET_TELL_NORMAL);
@@ -1004,6 +1030,7 @@ int main(void) {
 	testFlakSpeed();
 	testSfxPanning();
 	testThreatCounts();
+	testTurretsSortedAndAllDrawn();
 	testFlakHurtsAndGodmodeShrugs();
 	testCrashRespawnAndGameOver();
 	testMissilesFromAlertThree();
