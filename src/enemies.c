@@ -14,6 +14,8 @@ static const int16_t s_pJetExtra[6] = {0, 700, 350, 0, -250, -400};
 static const int16_t s_pBomberExtra[6] = {0, 900, 450, 0, -350, -600};
 static const uint8_t s_pFlakDamage[6] = {FLAK_DAMAGE, 4, 6, FLAK_DAMAGE, 10, 12};
 static const uint8_t s_pAimMask[6] = {31, 63, 47, 31, 15, 7};
+// the AA guns' tell (frames, a multiple of 4: a gun is looked at every 4th frame)
+static const uint8_t s_pTurretTell[6] = {TURRET_TELL_NORMAL, 24, 20, TURRET_TELL_NORMAL, 12, 8};
 // the alert level's effect (alert * 100, * 150, * 50: tables, no multiplies)
 static const int16_t s_pAlertJet[6] = {0, 100, 200, 300, 400, 500};
 static const int16_t s_pAlertBomber[6] = {0, 150, 300, 450, 600, 750};
@@ -39,6 +41,14 @@ static uint8_t pick(tGame *g, uint8_t n) {
 static inline uint8_t third(int16_t d) {
 	return (uint8_t)(((d < 0 ? 0 : d) * 85) >> 8);
 }
+
+// the frames flak takes to fly d px (up to a few hundred), at most 250
+static inline uint8_t flakFrames(int16_t d) {
+	int16_t f = divw(mulw(d < 0 ? 0 : d, 16), FLAK_SPEED);
+	return (uint8_t)(f > 250 ? 250 : f);
+}
+
+uint8_t logicTurretTell(const tGame *g) { return s_pTurretTell[g->difficulty <= 5 ? g->difficulty : 3]; }
 
 static inline void subStep(int16_t *pPos, int16_t v, uint8_t *pFrac) {
 	int16_t f = (int16_t)(*pFrac + v);
@@ -129,7 +139,7 @@ static void flakFire(tGame *g, int16_t x, int16_t y) {
 	if(!s) return;
 	const tChopper *c = &g->chop;
 	int16_t d = dist((int16_t)(c->x - x), (int16_t)(c->y - y));
-	uint8_t ubFrames = (uint8_t)(third(d) + 1);
+	uint8_t ubFrames = (uint8_t)(flakFrames(d) + 1);
 	uint8_t m = s_pAimMask[g->difficulty];
 	int16_t tx = (int16_t)(c->x + ((c->vx * ubFrames) >> 4) + (int16_t)(logicRandom(g) & m) - (m >> 1));
 	int16_t ty = (int16_t)(c->y + ((c->vy * ubFrames) >> 4) + (int16_t)(logicRandom(g) & m) - (m >> 1));
@@ -139,7 +149,7 @@ static void flakFire(tGame *g, int16_t x, int16_t y) {
 	s->y = y;
 	s->fx = s->fy = 0;
 	headingVel(logicHeadingTo((int16_t)(tx - x), (int16_t)(ty - y)), FLAK_SPEED, &s->vx, &s->vy);
-	s->life = (uint8_t)(third(dist((int16_t)(tx - x), (int16_t)(ty - y))) + 1);
+	s->life = (uint8_t)(flakFrames(dist((int16_t)(tx - x), (int16_t)(ty - y))) + 1);
 	g->events |= EV_FLAK;
 }
 
@@ -166,7 +176,7 @@ static void shellFire(tGame *g, int16_t x, int16_t y) {
 	s->y = y;
 	s->fx = s->fy = 0;
 	int16_t tx = g->carrier.x, ty = g->carrier.y;
-	headingVel(logicHeadingTo((int16_t)(tx - x), (int16_t)(ty - y)), FLAK_SPEED, &s->vx, &s->vy);
+	headingVel(logicHeadingTo((int16_t)(tx - x), (int16_t)(ty - y)), SHELL_SPEED, &s->vx, &s->vy);
 	s->life = (uint8_t)(third(dist((int16_t)(tx - x), (int16_t)(ty - y))) + 1);
 	g->events |= EV_FLAK;
 }
@@ -217,7 +227,10 @@ static void eshotsUpdate(tGame *g) {
 // ------------------------------------------------------------- turrets ---
 
 // A quarter of the turrets a frame (each one every 4 frames: its cooldown
-// counts 4 at a time)
+// counts 4 at a time). Every round has a tell: when the cooldown ends with the
+// gunship in range, the gun holds its aim and its barrels glow for
+// logicTurretTell frames (TURRET_TELL), then it fires (TURRET_FLASH). If the
+// gunship is out of range or on deck by then, it holds its fire.
 static void turretsUpdate(tGame *g) {
 	const tChopper *c = &g->chop;
 	uint8_t isTarget = g->state == GS_PLAY && !c->landed && c->alt;
@@ -225,25 +238,38 @@ static void turretsUpdate(tGame *g) {
 	for(uint8_t i = (uint8_t)(g->frame & 3); i < g->ubStructs; i = (uint8_t)(i + 4)) {
 		tStruct *s = &g->pStructs[i];
 		if(s->type != OBJ_TURRET || !s->hp) continue;
-		s->link &= 7;                       // a muzzle flash lasts one turn (4 frames)
+		s->link &= 7 | TURRET_TELL;         // a muzzle flash lasts one turn (4 frames)
+		uint8_t isTell = s->link & TURRET_TELL;
 		int16_t x = (int16_t)(s->tx * TILE + 8), y = (int16_t)(s->ty * TILE + 8);
 		int16_t d = 0x7FFF;
 		if(isTarget) {
 			int16_t dx = (int16_t)(c->x - x), dy = (int16_t)(c->y - y);
 			d = dist(dx, dy);
-			if(d <= TURRET_TRACK) {         // the gun turns toward the gunship, a step a turn
+			if(d <= TURRET_TRACK && !isTell) {   // the gun turns toward the gunship, a step a turn
 				uint8_t ubTurn = (uint8_t)((FRAME8(logicHeadingTo(dx, dy)) - s->link) & 7);
 				if(ubTurn) s->link = (uint8_t)((s->link + (ubTurn <= 4 ? 1 : 7)) & 7);
 			}
 		}
 		if(s->timer) { s->timer = s->timer > 4 ? (uint16_t)(s->timer - 4) : 0; continue; }
-		if(d > TURRET_RANGE) continue;
+		uint8_t ubTell = logicTurretTell(g);
+		if(!isTell) {
+			if(d > TURRET_RANGE) continue;
+			s->link |= TURRET_TELL;             // wind up: fire ubTell frames from now
+			s->timer = (uint16_t)(ubTell - 4);
+			continue;
+		}
+		s->link &= 7;
+		if(d > TURRET_RANGE) {                  // it got away (or landed): hold fire
+			s->timer = 32;
+			continue;
+		}
 		if(isMissile && !(logicRandom(g) & 3)) missileFire(g, x, y);
 		else flakFire(g, x, y);
 		s->link |= TURRET_FLASH;
-		int16_t wCool = (int16_t)(TURRET_COOL + s_pTurretCool[g->difficulty] + s_pThTurretCool[thIx(g)] -
+		// the cooldown includes the tell, so a gun fires as often as before 1.4
+		int16_t wCool = (int16_t)(TURRET_COOL - ubTell + s_pTurretCool[g->difficulty] + s_pThTurretCool[thIx(g)] -
 			s_pAlertCool[logicAlert(g)] + (logicRandom(g) & 31));
-		s->timer = (uint16_t)(wCool < 30 ? 30 : wCool);
+		s->timer = (uint16_t)(wCool < 30 - TURRET_TELL_NORMAL ? 30 - TURRET_TELL_NORMAL : wCool);
 	}
 }
 

@@ -506,20 +506,86 @@ static void turretGame(void) {
 
 static void testTurretFiresFlakInRange(void) {
 	turretGame();
-	step(NONE, 1);
-	CHECK(g.events & EV_FLAK);
+	step(NONE, 1);                                // the tell first...
+	CHECK(g.pStructs[1].link & TURRET_TELL);
+	CHECK(!(g.events & EV_FLAK) && !g.pEShots[0].active);
+	step(NONE, TURRET_TELL_NORMAL);               // ... then the round
 	CHECK(g.pEShots[0].active && g.pEShots[0].kind == ESHOT_FLAK);
+	CHECK(!(g.pStructs[1].link & TURRET_TELL));
 	turretGame();
 	g.chop.x = 1200;                              // out of range
-	step(NONE, 5);
+	step(NONE, 40);
 	CHECK(!g.pEShots[0].active);
+	CHECK(!(g.pStructs[1].link & TURRET_TELL));
 }
 
-// The gun turns a step at a time to aim at the gunship (north-east of it
-// here), flashes when it fires, and is drawn on its turret; a crater has none
+// The AA guns' tell (playbook F1): no round, flak or missile, without the gun
+// winding up (TURRET_TELL, its barrels held still) for logicTurretTell frames
+// just before it; at least 12 frames on normal, 8 on hardest. Over 3 minutes of
+// hovering in range on every difficulty, on every alert level.
+static void testNoShotWithoutATell(void) {
+	for(uint8_t d = 1; d <= 5; ++d) {
+		for(uint8_t a = 0; a <= 4; a = (uint8_t)(a + 2)) {
+			turretGame();
+			logicSetDifficulty(&g, d);
+			g.ubFactories = 6; g.factoriesLeft = (uint8_t)(6 - a);   // alert a (missiles from 3)
+			g.cruiser.sunk = 1;
+			uint8_t ubTell = logicTurretTell(&g);
+			CHECK(ubTell >= (d >= 5 ? 8 : 12) && (d != 3 || (ubTell >= 12 && ubTell <= 18)));
+			uint16_t uwTellRun = 0, uwShots = 0;
+			uint8_t ubAim = g.pStructs[1].link & 7, isMoved = 0;
+			for(int f = 0; f < 50 * 180; ++f) {
+				g.chop.damage = 0;                    // (it hovers on, unhurt)
+				uint8_t ubBefore = 0;
+				for(int k = 0; k < ESHOT_MAX; ++k) ubBefore = (uint8_t)(ubBefore + g.pEShots[k].active);
+				step(NONE, 1);
+				uint8_t ubAfter = 0;
+				for(int k = 0; k < ESHOT_MAX; ++k) ubAfter = (uint8_t)(ubAfter + g.pEShots[k].active);
+				if(ubAfter > ubBefore || (g.events & (EV_FLAK | EV_MISSILE))) {
+					++uwShots;
+					CHECK(uwTellRun >= ubTell);       // it wound up for the whole tell
+					CHECK(!isMoved);                  // with the barrels held still
+					CHECK(g.pStructs[1].link & TURRET_FLASH);
+				}
+				if(g.pStructs[1].link & TURRET_TELL) {
+					if(uwTellRun && (g.pStructs[1].link & 7) != ubAim) isMoved = 1;
+					if(!uwTellRun) { ubAim = g.pStructs[1].link & 7; isMoved = 0; }
+					++uwTellRun;
+				}
+				else uwTellRun = 0;
+				for(int k = 0; k < ESHOT_MAX; ++k) if(g.pEShots[k].life <= 1) g.pEShots[k].active = 0;   // (no bursts)
+			}
+			CHECK(uwShots >= 40);                     // and it does fire (every 2-4 s)
+		}
+	}
+}
+
+// A gunship that lands (or gets out of range) during the tell isn't shot at;
+// a hit on the gun doesn't cut its tell short
+static void testTellHoldsFireAndCantBeCut(void) {
+	turretGame();
+	step(NONE, 1);
+	CHECK(g.pStructs[1].link & TURRET_TELL);
+	g.chop.x = 1200;
+	step(NONE, 40);
+	for(int k = 0; k < ESHOT_MAX; ++k) CHECK(!g.pEShots[k].active);
+	turretGame();
+	step(NONE, 1);
+	uint16_t uwTimer = g.pStructs[1].timer;
+	CHECK(uwTimer > 0);
+	g.pStructs[1].hp = 2;
+	tShot *pS = &g.pShots[0];                     // a cannon round onto the gun
+	pS->active = 1; pS->kind = SHOT_CANNON; pS->alt = 2; pS->vx = pS->vy = 0; pS->fx = pS->fy = 0;
+	pS->x = (int16_t)(g.pStructs[1].tx * TILE + 7); pS->y = (int16_t)(g.pStructs[1].ty * TILE + 6);
+	step(NONE, 1);
+	CHECK(g.pStructs[1].hp == 1);
+	CHECK(g.pStructs[1].timer + 4 >= uwTimer && g.pStructs[1].timer && !g.pEShots[0].active);
+}
+
 static void testTurretGunAimsAndFlashes(void) {
 	turretGame();
 	g.pStructs[1].link = 5;                       // aimed south-west
+	g.pStructs[1].timer = 20;                     // (turning before its tell)
 	uint8_t ubFlash = 0, ubTurns = 0, ubLast = 5;
 	for(int i = 0; i < 40; ++i) {
 		step(NONE, 1);
@@ -538,6 +604,9 @@ static void testTurretGunAimsAndFlashes(void) {
 		CHECK((pDraw[i].frame & 7) == 1);
 	}
 	CHECK(ubGuns == 1);
+	g.pStructs[1].link = 3 | TURRET_TELL;         // winding up: frames 16-23
+	n = logicDraw(&g, pDraw);
+	for(uint8_t i = 0; i < n; ++i) if(pDraw[i].bob == BOB_GUN) CHECK(pDraw[i].frame == 16 + 3 && pDraw[i].frame < g_pBobFrames[BOB_GUN]);
 	g.pStructs[1].hp = 0;
 	n = logicDraw(&g, pDraw);
 	for(uint8_t i = 0; i < n; ++i) CHECK(pDraw[i].bob != BOB_GUN);
@@ -817,6 +886,8 @@ int main(void) {
 	testHeadingTo();
 	testTurretFiresFlakInRange();
 	testTurretGunAimsAndFlashes();
+	testNoShotWithoutATell();
+	testTellHoldsFireAndCantBeCut();
 	testFlakHurtsAndGodmodeShrugs();
 	testCrashRespawnAndGameOver();
 	testMissilesFromAlertThree();

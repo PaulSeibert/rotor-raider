@@ -304,8 +304,11 @@ typedef struct {
 #define TURRET_RANGE 120       // px, ground distance to the gunship's ground point
 #define TURRET_TRACK 200       // px: a turret's gun follows the gunship from this far
 #define TURRET_FLASH 0x80      // a turret's link: its gun's aim (0-7, of 8) | this while it fires
-#define TURRET_COOL 110        // frames between rounds (difficulty and alert take some off)
+#define TURRET_TELL 0x40       // ... | this while it winds up to fire: the barrels glow, held still
+#define TURRET_TELL_NORMAL 16  // frames of the tell before every round (by difficulty: 24 .. 8)
+#define TURRET_COOL 110        // frames between rounds, the tell included (difficulty and alert take some off)
 #define FLAK_SPEED 48          // 3 px a frame
+#define SHELL_SPEED 48         // the cruiser's shells at the carrier: 3 px a frame
 #define FLAK_R 14              // a burst this close hurts
 #define FLAK_DAMAGE 8
 #define MISSILE_SPEED 44
@@ -364,6 +367,7 @@ const char *logicRank(uint32_t ulScore);
 uint8_t logicFactoryHp(const tGame *g);    // FACTORY_HP and up: 3, 4, 5 bombs
 uint16_t logicCruiserBuild(const tGame *g);
 uint8_t logicMissileAlert(const tGame *g);
+uint8_t logicTurretTell(const tGame *g);   // frames an AA gun winds up before it fires
 void logicSetDifficulty(tGame *g, uint8_t ubLevel);   // 0 invincible .. 5
 void logicStartGame(tGame *g);             // from the title: theatre 0 (main.c loads it)
 void logicHitChopper(tGame *g, uint8_t ubDamage);

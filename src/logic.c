@@ -11,7 +11,7 @@ const uint8_t g_pBobH[BOB_TYPES] = {[BOB_SHADOW] = 32, [BOB_CARRIER] = 32, [BOB_
 	[BOB_BOMBER] = 32, [BOB_BOAT] = 16, [BOB_CRUISER] = 32, [BOB_FLAK] = 4, [BOB_MISSILE] = 16, [BOB_LOGO] = 146, [BOB_POINTER] = 16, [BOB_GUN] = 16};
 const uint8_t g_pBobFrames[BOB_TYPES] = {[BOB_SHADOW] = 16, [BOB_CARRIER] = 4, [BOB_SHOT] = 1,
 	[BOB_BOMB] = 1, [BOB_BOOM] = 6, [BOB_PUFF] = 4, [BOB_RETICLE] = 2, [BOB_JET] = 8,
-	[BOB_BOMBER] = 8, [BOB_BOAT] = 8, [BOB_CRUISER] = 2, [BOB_FLAK] = 1, [BOB_MISSILE] = 8, [BOB_LOGO] = 1, [BOB_POINTER] = 8, [BOB_GUN] = 16};
+	[BOB_BOMBER] = 8, [BOB_BOAT] = 8, [BOB_CRUISER] = 2, [BOB_FLAK] = 1, [BOB_MISSILE] = 8, [BOB_LOGO] = 1, [BOB_POINTER] = 8, [BOB_GUN] = 24};
 
 const char *const g_pTheatreName[THEATRES] = {"CORAL REACH", "EMBER FLATS", "FROSTLINE"};
 
@@ -290,7 +290,7 @@ static void structDamage(tGame *g, tStruct *s, uint8_t ubDmg) {
 	cx = (int16_t)(s->tx * TILE + w * 8);
 	cy = (int16_t)(s->ty * TILE + h * 8);
 	s->hp = s->hp > ubDmg ? (uint8_t)(s->hp - ubDmg) : 0;
-	s->timer = 0;
+	if(s->type != OBJ_TURRET || !(s->link & TURRET_TELL)) s->timer = 0;   // (a hit never shortens a tell)
 	if(s->hp) {
 		if(s->type == OBJ_FACTORY && s->stage == 0) {
 			s->stage = 1;
@@ -872,11 +872,12 @@ uint8_t logicDraw(const tGame *g, tDraw *pOut) {
 	uint8_t n = 0;
 	int16_t cx = g->camX, cy = g->camY;
 	const tCarrier *k = &g->carrier;
-	// the turrets' guns, on their tiles: aimed, and flashing as they fire
+	// the turrets' guns, on their tiles: aimed, glowing as they wind up (the
+	// tell, frames 16-23) and flashing as they fire (8-15)
 	for(uint8_t i = 0; i < g->ubTurrets; ++i) {
 		const tStruct *s = &g->pStructs[g->pTurrets[i]];
 		if(!s->hp) continue;
-		uint8_t f = (uint8_t)((s->link & 7) | (s->link & TURRET_FLASH ? 8 : 0));
+		uint8_t f = (uint8_t)((s->link & 7) | (s->link & TURRET_FLASH ? 8 : s->link & TURRET_TELL ? 16 : 0));
 		n = drawAdd(pOut, n, (int16_t)((s->tx << 4) - cx), (int16_t)((s->ty << 4) - cy), BOB_GUN, f);
 	}
 	if(k->hp) {

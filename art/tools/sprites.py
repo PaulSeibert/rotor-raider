@@ -486,9 +486,19 @@ def pointer_pixel(lx, ly, wx, wy):
 def gun_pixel(fire, heading):
     """an AA gun from above, barrels to -y: a turret ring, a domed mount, a
     mantlet, twin long barrels with flash hiders, the Combine's red on its
-    back; firing, a muzzle flash at each barrel"""
+    back; firing (1), a muzzle flash at each barrel; winding up to fire (2,
+    the tell), the barrels glow red to a yellow tip"""
     def f(lx, ly, wx, wy):
-        if fire:
+        if fire == 2:
+            for bx in (-1.9, 1.9):
+                d = math.hypot(lx - bx, ly + 6.9)
+                if d < 1.1:
+                    return '6'
+                if d < 2.0:
+                    return '7'
+                if abs(lx - bx) <= 0.95 and -7.4 <= ly <= -2:
+                    return '5'
+        if fire == 1:
             for bx in (-1.9, 1.9):
                 d = math.hypot(lx - bx, ly + 7.4)
                 if d < 0.9:
@@ -569,9 +579,9 @@ def main():
     # (logo.txt, the title logo, is made by make_title_logo.py: run it first)
     save_bob('pointer', "Home's pointer at the screen's edge, 16x16, 8 headings",
              [render_pens(16, pointer_pixel, h) for h in range(0, 16, 2)])
-    guns = [render_pens(16, gun_pixel(fire, h), h) for fire in (0, 1) for h in range(0, 16, 2)]
-    save_bob('gun', 'An AA gun on its turret, 16x16: 8 aims, then the same 8 firing (the blitter\'s, '
-             'for a gun the sprites have no room for)', [[[('4' if c == 'w' else c) for c in r] for r in f] for f in guns])
+    guns = [render_pens(16, gun_pixel(fire, h), h) for fire in (0, 1, 2) for h in range(0, 16, 2)]
+    save_bob('gun', 'An AA gun on its turret, 16x16: 8 aims, the same 8 firing, then 8 winding up to fire '
+             '(the blitter\'s, for a gun the sprites have no room for)', [[[('4' if c == 'w' else c) for c in r] for r in f] for f in guns])
     export_gun_sprites(guns)
     shot, bomb, booms, puffs, rets = small_bobs()
     save_bob('shot', 'A cannon round (tracer), 16x4', shot)

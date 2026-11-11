@@ -20,7 +20,7 @@ static const tBobFile g_pBobFile[] = {
 	{30592, 16, 16, 8},   // missile
 	{31616, 160, 146, 1},   // logo
 	{43296, 16, 16, 8},   // pointer
-	{44320, 16, 16, 16},   // gun
+	{44320, 16, 16, 24},   // gun
 };
-#define BOBS_BYTES 46368
+#define BOBS_BYTES 47392
 #endif
