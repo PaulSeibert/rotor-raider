@@ -521,8 +521,38 @@ static void testTurretFiresFlakInRange(void) {
 
 // The AA guns' tell (playbook F1): no round, flak or missile, without the gun
 // winding up (TURRET_TELL, its barrels held still) for logicTurretTell frames
-// just before it; at least 12 frames on normal, 8 on hardest. Over 3 minutes of
-// hovering in range on every difficulty, on every alert level.
+// just before it; at least 12 frames (the playbook's floor) on every difficulty,
+// hardest included (Paul, 2026-11-11). Over 3 minutes of hovering in range on
+// every difficulty, on every alert level.
+// The table: 16 normal; 24 / 20 / 16 / 14 / 12 on skills 1-5; GODMODE (0) is normal.
+static void testAaTellTable(void) {
+	static const uint8_t pWant[6] = {16, 24, 20, 16, 14, 12};
+	for(uint8_t d = 0; d <= 5; ++d) {
+		turretGame();
+		logicSetDifficulty(&g, d);
+		CHECK(logicTurretTell(&g) == pWant[d]);
+		CHECK(logicTurretTell(&g) >= 12);
+	}
+	// what plays (a gun is looked at every 4th frame): 14 plays as 16, 12 as 12
+	static const uint8_t pPlays[6] = {16, 24, 20, 16, 16, 12};
+	for(uint8_t d = 0; d <= 5; ++d) {
+		turretGame();
+		logicSetDifficulty(&g, d);
+		step(NONE, 1);
+		CHECK(g.pStructs[1].link & TURRET_TELL);
+		uint8_t n = 1;
+		while((g.pStructs[1].link & TURRET_TELL) && n < 60) { step(NONE, 1); ++n; }
+		--n;                                      // (pictures it was seen winding up)
+		CHECK(n == pPlays[d]);
+		CHECK(n >= pWant[d]);
+	}
+	turretGame();
+	logicSetDifficulty(&g, 0);
+	CHECK(logicTurretTell(&g) == TURRET_TELL_NORMAL);
+	logicSetDifficulty(&g, 3);
+	CHECK(logicTurretTell(&g) == TURRET_TELL_NORMAL);
+}
+
 static void testNoShotWithoutATell(void) {
 	for(uint8_t d = 1; d <= 5; ++d) {
 		for(uint8_t a = 0; a <= 4; a = (uint8_t)(a + 2)) {
@@ -531,7 +561,7 @@ static void testNoShotWithoutATell(void) {
 			g.ubFactories = 6; g.factoriesLeft = (uint8_t)(6 - a);   // alert a (missiles from 3)
 			g.cruiser.sunk = 1;
 			uint8_t ubTell = logicTurretTell(&g);
-			CHECK(ubTell >= (d >= 5 ? 8 : 12) && (d != 3 || (ubTell >= 12 && ubTell <= 18)));
+			CHECK(ubTell >= 12 && (d != 3 || ubTell <= 18));
 			uint16_t uwTellRun = 0, uwShots = 0;
 			uint8_t ubAim = g.pStructs[1].link & 7, isMoved = 0;
 			for(int f = 0; f < 50 * 180; ++f) {
@@ -1153,6 +1183,7 @@ int main(void) {
 	testHeadingTo();
 	testTurretFiresFlakInRange();
 	testTurretGunAimsAndFlashes();
+	testAaTellTable();
 	testNoShotWithoutATell();
 	testTellHoldsFireAndCantBeCut();
 	testFlakSpeed();

@@ -14,8 +14,10 @@ static const int16_t s_pJetExtra[6] = {0, 700, 350, 0, -250, -400};
 static const int16_t s_pBomberExtra[6] = {0, 900, 450, 0, -350, -600};
 static const uint8_t s_pFlakDamage[6] = {FLAK_DAMAGE, 4, 6, FLAK_DAMAGE, 10, 12};
 static const uint8_t s_pAimMask[6] = {31, 63, 47, 31, 15, 7};
-// the AA guns' tell (frames, a multiple of 4: a gun is looked at every 4th frame)
-static const uint8_t s_pTurretTell[6] = {TURRET_TELL_NORMAL, 24, 20, TURRET_TELL_NORMAL, 12, 8};
+// the AA guns' tell (frames; never under the playbook's 12: the hardest stays
+// harder through its fire rate. A gun is looked at every 4th frame, so the tell
+// plays in steps of 4: 14 plays as 16). Index 0 (GODMODE) is normal.
+static const uint8_t s_pTurretTell[6] = {TURRET_TELL_NORMAL, 24, 20, TURRET_TELL_NORMAL, 14, 12};
 // the alert level's effect (alert * 100, * 150, * 50: tables, no multiplies)
 static const int16_t s_pAlertJet[6] = {0, 100, 200, 300, 400, 500};
 static const int16_t s_pAlertBomber[6] = {0, 150, 300, 450, 600, 750};

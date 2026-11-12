@@ -327,7 +327,7 @@ void logicThreat(const tGame *g, uint8_t *pAir, uint8_t *pShots);
 #define TURRET_TRACK 200       // px: a turret's gun follows the gunship from this far
 #define TURRET_FLASH 0x80      // a turret's link: its gun's aim (0-7, of 8) | this while it fires
 #define TURRET_TELL 0x40       // ... | this while it winds up to fire: the barrels glow, held still
-#define TURRET_TELL_NORMAL 16  // frames of the tell before every round (by difficulty: 24 .. 8)
+#define TURRET_TELL_NORMAL 16  // frames of the tell before every round (by difficulty: 24 .. 12)
 #define TURRET_COOL 110        // frames between rounds, the tell included (difficulty and alert take some off)
 #define FLAK_SPEED 24          // 1.5 px a frame (3 before 1.4: playbook F2 wants 1-1.5)
 #define SHELL_SPEED 48         // the cruiser's shells at the carrier: 3 px a frame
