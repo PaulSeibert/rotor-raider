@@ -28,13 +28,18 @@ faster-built cruiser) and **Frostline** (5, and missiles almost at once).
 | File | What it is |
 |---|---|
 | [**rotor-raider.adf**](https://github.com/PaulSeibert/rotor-raider/releases/latest/download/rotor-raider.adf) | The game disk: a bootable Amiga floppy image. This is all you need to play. |
-| [rotor-raider-1.3.zip](https://github.com/PaulSeibert/rotor-raider/releases/latest/download/rotor-raider-1.3.zip) | The full release: the disk, the program for hard-disk installs, a README, the music credits and the demo GIF |
+| [rotor-raider-1.4.zip](https://github.com/PaulSeibert/rotor-raider/releases/latest/download/rotor-raider-1.4.zip) | The full release: the disk, the program for hard-disk installs, a README, the music credits and the demo GIF |
 | [rotor-raider-demo.mp4](https://github.com/PaulSeibert/rotor-raider/releases/latest/download/rotor-raider-demo.mp4) | The gameplay video |
 
 All versions are on the [Releases page](https://github.com/PaulSeibert/rotor-raider/releases).
 
 **New in 1.4:**
-- every AA gun warns before it fires: its barrels hold still and glow red, then flash;
+- new art throughout: the gunship, the interceptors, bombers, boats, the carrier and the cruiser, the explosions, the AA guns and a new terrain kit, with a fix for Frostline, where factories and roads used to vanish on the snow;
+- a restyled HUD, and its map of the theatre works again (it had been blank since 1.0): your gunship, the carrier, the factories and the planes at a glance;
+- every AA gun warns before it fires: its barrels hold still and glow red, then flash; the warning is at least 12 frames (a quarter of a second) at every difficulty, 16 on normal;
+- so does every interceptor: its nose and wingtips flash yellow and a short beep sounds on its side of the screen, about a third of a second before its missile leaves (and if the jet leaves the screen first, no missile comes);
+- jets no longer circle your carrier: while you are on a deck, and for 3 s after take-off, they break off, and near the carrier only one at a time attacks;
+- the keys (P, M, Ctrl+L) now act the same on every machine, from the A500 to the A1200;
 - flak flies at half the speed (1.5 px a frame): keep moving and it bursts behind you;
 - the music in the air keeps all four voices (the rotor used to take one all game);
 - sound effects in stereo, on the side of the screen where they happen;
@@ -128,8 +133,12 @@ the score bar (SK3) and stays until you change it.
 - Damage shows on the HUD bar; at 100% the gunship goes down. You have four.
 - An AA gun's barrels show where it's aiming. Before every round they hold
   still and glow red for about a third of a second (16 frames on normal,
-  longer on the easier settings): that's your warning. Then they flash and
-  fire.
+  longer on the easier settings, 12 at the hardest): that's your warning.
+  Then they flash and fire.
+- An interceptor warns too. When it lines up on you, its nose and wingtips
+  flare yellow and white and a short high beep sounds on its side of the
+  screen; its missile leaves 16 frames later on normal (24 on easiest, 12 on
+  hardest). Get off its line, or out of its sight, and it holds its fire.
 - The HUD shows the score, gunships left, damage, bombs, the carrier's
   strength, the shipyard's progress, factories left and a map of the whole
   theatre (red: factories, yellow: the carrier, white: you, orange: planes).
@@ -191,8 +200,8 @@ Paula plays channels 0 and 3 on the left, 1 and 2 on the right.
 | 3 | left | music; effects on the left of the screen | music; menu effects |
 
 - **Effects** (`sound/sound.toml`, `sfx_channels = [1, 3]`) play on the side
-  of the screen where they happen: flak, missiles, explosions and factories
-  by their position, the gunship's own sounds by where it is. Within 40 px of
+  of the screen where they happen: flak, missiles, explosions, factories and
+  an interceptor's lock-on beep by their position, the gunship's own sounds by where it is. Within 40 px of
   the middle they take whichever of the two is free. The cruiser's klaxon
   comes from anywhere. An effect takes its channel from the music for its
   length (0.08-0.5 s); those are the bass and drum voices, which come back at
