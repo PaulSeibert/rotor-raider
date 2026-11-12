@@ -52,6 +52,11 @@ static inline uint8_t flakFrames(int16_t d) {
 
 uint8_t logicTurretTell(const tGame *g) { return s_pTurretTell[g->difficulty <= 5 ? g->difficulty : 3]; }
 
+// the interceptors' missile tell: the AA table's numbers (a jet is looked at every
+// frame, so they are exact). Index 0 (GODMODE) is normal.
+static const uint8_t s_pJetTell[6] = {JET_TELL_NORMAL, 24, 20, JET_TELL_NORMAL, 14, 12};
+uint8_t logicJetTell(const tGame *g) { return s_pJetTell[g->difficulty <= 5 ? g->difficulty : 3]; }
+
 static inline void subStep(int16_t *pPos, int16_t v, uint8_t *pFrac) {
 	int16_t f = (int16_t)(*pFrac + v);
 	*pPos = (int16_t)(*pPos + (f >> 4));
@@ -310,6 +315,7 @@ static void airSpawnAt(tGame *g, uint8_t ubKind, int16_t x, int16_t y) {
 	a->hp = ubKind == AIR_JET ? JET_HP : BOMBER_HP;
 	a->timer = 60;
 	a->done = 0;
+	a->ubTell = 0;
 	a->uwLife = 1500;
 }
 
@@ -337,6 +343,12 @@ static uint8_t jetCommittedNearCarrier(const tGame *g, uint8_t ubSelf) {
 			dist((int16_t)(o->x - g->carrier.x), (int16_t)(o->y - g->carrier.y)) < JET_DECK_ZONE) return 1;
 	}
 	return 0;
+}
+
+// the jet's middle is on the play area (the camera as of the last picture)
+static uint8_t jetOnScreen(const tGame *g, const tAir *a) {
+	int16_t sx = (int16_t)(a->x - g->camX), sy = (int16_t)(a->y - g->camY);
+	return sx >= 0 && sx < SCREEN_W && sy >= 0 && sy < PLAY_H;
 }
 
 static void airUpdate(tGame *g, uint8_t ubRadars) {
@@ -391,10 +403,23 @@ static void airUpdate(tGame *g, uint8_t ubRadars) {
 				logicHitChopper(g, 30);
 				continue;
 			}
-			if(!a->done && !a->timer && g->state == GS_PLAY && !c->landed && dist(dx, dy) < 110 &&
-				((logicHeadingTo(dx, dy) - a->heading + 1) & 15) <= 2) {
-				missileFire(g, a->x, a->y);
-				a->timer = 90;
+			// The missile has a tell (1.4): the jet flashes for logicJetTell frames, a
+			// lock-on beep as it starts, and the missile leaves only when it ends. It is
+			// cancelled if the jet leaves the screen, breaks off, or loses the gunship.
+			if(a->ubTell) {
+				if(a->done || g->state != GS_PLAY || c->landed || !jetOnScreen(g, a) || dist(dx, dy) >= JET_TELL_RANGE) {
+					a->ubTell = 0;
+					a->timer = JET_TELL_PAUSE;
+				}
+				else if(!--a->ubTell) {
+					missileFire(g, a->x, a->y);
+					a->timer = 90;
+				}
+			}
+			else if(!a->done && !a->timer && g->state == GS_PLAY && !c->landed && dist(dx, dy) < 110 &&
+				((logicHeadingTo(dx, dy) - a->heading + 1) & 15) <= 2 && jetOnScreen(g, a)) {
+				a->ubTell = logicJetTell(g);
+				logicEventAt(g, EV_LOCKON, a->x);
 			}
 		}
 		else if(!a->done && dist((int16_t)(g->carrier.x - a->x), (int16_t)(g->carrier.y - a->y)) < 14) {

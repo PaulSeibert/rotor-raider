@@ -10,7 +10,8 @@ const uint8_t g_pBobH[BOB_TYPES] = {[BOB_SHADOW] = 32, [BOB_CARRIER] = 32, [BOB_
 	[BOB_BOMB] = 8, [BOB_BOOM] = 32, [BOB_PUFF] = 16, [BOB_RETICLE] = 16, [BOB_JET] = 32,
 	[BOB_BOMBER] = 32, [BOB_BOAT] = 16, [BOB_CRUISER] = 32, [BOB_FLAK] = 4, [BOB_MISSILE] = 16, [BOB_LOGO] = 146, [BOB_POINTER] = 16, [BOB_GUN] = 16};
 const uint8_t g_pBobFrames[BOB_TYPES] = {[BOB_SHADOW] = 16, [BOB_CARRIER] = 4, [BOB_SHOT] = 1,
-	[BOB_BOMB] = 1, [BOB_BOOM] = 6, [BOB_PUFF] = 4, [BOB_RETICLE] = 2, [BOB_JET] = 8,
+	[BOB_BOMB] = 1, [BOB_BOOM] = 6, [BOB_PUFF] = 4, [BOB_RETICLE] = 2, [BOB_JET] = 16,   // (8 headings, then the same 8 flashing: the missile tell)
+
 	[BOB_BOMBER] = 8, [BOB_BOAT] = 8, [BOB_CRUISER] = 2, [BOB_FLAK] = 1, [BOB_MISSILE] = 8, [BOB_LOGO] = 1, [BOB_POINTER] = 8, [BOB_GUN] = 24};
 
 const char *const g_pTheatreName[THEATRES] = {"CORAL REACH", "EMBER FLATS", "FROSTLINE"};
@@ -956,7 +957,8 @@ uint8_t logicDraw(const tGame *g, tDraw *pOut) {
 	for(uint8_t i = 0; i < AIR_MAX; ++i) {
 		const tAir *a = &g->pAir[i];
 		if(a->active) n = drawAdd(pOut, n, (int16_t)(a->x - 16 - cx), (int16_t)(a->y - 16 - cy),
-			a->kind == AIR_JET ? BOB_JET : BOB_BOMBER, FRAME8(a->heading));
+			a->kind == AIR_JET ? BOB_JET : BOB_BOMBER,
+			(uint8_t)(FRAME8(a->heading) + (a->kind == AIR_JET && a->ubTell ? 8 : 0)));   // 8-15: the tell's flash
 	}
 	// home's pointer at the edge of the play area, when it's off screen
 	int16_t hx, hy;

@@ -172,7 +172,8 @@ typedef struct {
 	uint8_t timer;             // turning, firing
 	uint8_t done;              // leaving (bombers: bombs dropped)
 	uint16_t uwLife;           // frames before a jet gives up and leaves
-	uint8_t pad[14];
+	uint8_t ubTell;            // a jet: frames of its missile tell left (it flashes; the missile leaves at 0)
+	uint8_t pad[13];
 } tAir;                        // 32 bytes
 #define AIR_MAX 4
 
@@ -267,6 +268,7 @@ typedef struct {
 #define EV_SUNK      0x4000   // the carrier sank
 #define EV_CRUISER_UP 0x8000  // the cruiser escalated (ignored too long)
 #define EV_CRUISER_SUNK 0x10000
+#define EV_LOCKON    0x20000  // an interceptor began its missile tell (the lock-on beep)
 void logicEventAt(tGame *g, uint32_t ulEv, int16_t x);   // events |= ulEv, which happened at world x
 int16_t logicEventX(const tGame *g, uint32_t ulEv);       // ... where it was (one bit)
 
@@ -339,6 +341,9 @@ void logicThreat(const tGame *g, uint8_t *pAir, uint8_t *pShots);
 #define MISSILE_ALERT 3        // from this alert level turrets fire missiles
 #define JET_SPEED 56           // 3.5 px a frame
 #define JET_HP 2
+#define JET_TELL_NORMAL 16     // frames a jet flashes before its missile leaves (by difficulty: 24 .. 12)
+#define JET_TELL_PAUSE 30      // frames before it tries again after a tell was aborted
+#define JET_TELL_RANGE 160     // px: a tell is aborted if the gunship gets further than this (it starts within 110)
 #define JET_DECK_GRACE 150     // frames after take-off with no new attack run (jets break off on deck too)
 #define JET_DECK_ZONE 250      // px: near the carrier, one jet at a time commits to the gunship
 #define JET_EVERY 900          // frames between jets (radar and alert make it less)
@@ -401,6 +406,7 @@ uint8_t logicFactoryHp(const tGame *g);    // FACTORY_HP and up: 3, 4, 5 bombs
 uint16_t logicCruiserBuild(const tGame *g);
 uint8_t logicMissileAlert(const tGame *g);
 uint8_t logicTurretTell(const tGame *g);   // frames an AA gun winds up before it fires
+uint8_t logicJetTell(const tGame *g);      // frames a jet flashes before its missile leaves
 void logicSetDifficulty(tGame *g, uint8_t ubLevel);   // 0 invincible .. 5
 void logicStartGame(tGame *g);             // from the title: theatre 0 (main.c loads it)
 void logicHitChopper(tGame *g, uint8_t ubDamage);

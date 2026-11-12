@@ -891,6 +891,7 @@ __attribute__((noinline)) static void playSounds(UBYTE ubStateBefore) {
 	else if(e & EV_BOOM) sfxAt(SOUND_SFX_BOOM, EV_BOOM);
 	if(e & (EV_CRUISER | EV_CRUISER_UP)) soundPlay(SOUND_SFX_KLAXON);   // (an alarm: from anywhere)
 	if(e & EV_HIT) sfxAt(SOUND_SFX_HIT, EV_HIT);
+	if(e & EV_LOCKON) sfxAt(SOUND_SFX_LOCKON, EV_LOCKON);   // (a jet's missile tell: on its side, one effect a side)
 	if(e & EV_MISSILE) sfxAt(SOUND_SFX_MISSILE, EV_MISSILE);
 	else if(e & EV_FLAK) sfxAt(SOUND_SFX_FLAK, EV_FLAK);
 	if(e & EV_CANNON) sfxAt(SOUND_SFX_CANNON, EV_CANNON);
@@ -1744,6 +1745,8 @@ __attribute__((noinline)) static void reportState(void) {
 	if(e & EV_CRASH) agkPrint("AGK gunship lost\n");
 	if(e & EV_FACTORY) agkPrint("AGK factory destroyed\n");
 	if(e & EV_CARRIER) agkPrint("AGK carrier hit\n");
+	if(e & EV_LOCKON) agkPrint("AGK jet tell\n");
+	if(e & EV_MISSILE) agkPrint("AGK missile launched\n");
 	if(e & EV_CRUISER) agkPrint("AGK cruiser sails\n");
 	if(e & EV_CRUISER_UP) { agkState("cruiser escalates", g->cruiser.ubLevel); agkEnd(); }
 	if(e & EV_CRUISER_SUNK) agkPrint("AGK cruiser sunk\n");

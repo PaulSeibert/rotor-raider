@@ -1,0 +1,30 @@
+# An interceptor jet's missile has a tell (1.4): in GODMODE by a factory a jet comes at the
+# gunship, flashes (nose and wingtips) with a lock-on beep, and only then fires. The rules
+# (the whole tell, on every difficulty, the abort) are in tests/unit; this is the beep and the
+# game printing both, on every profile. (No AA missile before the alert reaches 3, so the first
+# "missile launched" is a jet's.)
+wait-serial "AGK t0"
+wait 10
+press fire 2
+wait-serial "theatre loaded=0"
+wait 10
+key 0x63
+key 0x28
+wait 5
+key 0x0A
+wait 30
+key 0x63
+key 0x28
+wait 5
+key 0x09
+wait-serial "jet tell" 4000
+wait 6
+screenshot flash
+# the flare's white cores: the nose, and both wingtips (the jet is flying north here)
+expect-color flash 142 175 0xFEC
+expect-color flash 129 195 0xFEC
+expect-color flash 156 195 0xFEC
+expect-serial "sfx lockon"
+wait 40
+expect-serial "missile launched"
+expect-no-serial "AGK ERR"

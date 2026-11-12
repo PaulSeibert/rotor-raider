@@ -1053,6 +1053,152 @@ static void testOneJetAtATimeNearTheCarrier(void) {
 	CHECK(uwBad == 0);
 }
 
+// ---- the interceptors' missile tell (1.4: Paul, 2026-11-11) ----
+// A jet that means to fire flashes (its drawn frame is 8 + the heading: the
+// nose and wingtips flare) for logicJetTell frames, a lock-on beep (EV_LOCKON)
+// sounding as it starts, and only then does the missile leave. 16 frames on
+// normal, scaled by difficulty like the AA table: 24 / 20 / 16 / 14 / 12.
+
+// the flying gunship, hovering at (800, 500) with a radar up and no turret;
+// the camera settled on it
+static void jetTellGame(uint8_t ubDifficulty, uint8_t ubAlert) {
+	deckTheatre();
+	g.uwJetTimer = 60000;
+	g.uwDeckGrace = 0;
+	g.chop.landed = 0;
+	g.chop.landTimer = 0;
+	g.chop.alt = ALT_CRUISE;
+	g.chop.x = 800; g.chop.y = 500;
+	g.chop.vx = g.chop.vy = 0;
+	g.pStructs[1].hp = 0;                         // (the factory is struct 1: nothing else fires)
+	for(uint8_t i = 0; i < g.ubStructs; ++i) if(g.pStructs[i].type == OBJ_TURRET) g.pStructs[i].hp = 0;
+	logicSetDifficulty(&g, ubDifficulty);
+	g.ubFactories = 6; g.factoriesLeft = (uint8_t)(6 - ubAlert);
+	g.cruiser.sunk = 1;
+	step(NONE, 200);
+	g.chop.damage = 0;
+}
+
+// a jet 130-ish px from the gunship, heading for it
+static void jetPlace(uint8_t k) {
+	static const int8_t pOx[8] = {120, 85, 0, -85, -120, -85, 0, 85}, pOy[8] = {0, 85, 120, 85, 0, -85, -120, -85};
+	tAir *a = &g.pAir[0];
+	a->active = 1; a->kind = AIR_JET; a->hp = JET_HP; a->timer = 60; a->done = 0; a->uwLife = 1500; a->ubTell = 0;
+	a->x = (int16_t)(g.chop.x + pOx[k & 7]); a->y = (int16_t)(g.chop.y + pOy[k & 7]);
+	a->fx = a->fy = 0;
+	a->heading = logicHeadingTo((int16_t)(g.chop.x - a->x), (int16_t)(g.chop.y - a->y));
+}
+
+// the frame the first jet is drawn with (0xFF: not on screen)
+static uint8_t jetFrame(void) {
+	static tDraw pDraw[DRAW_MAX];
+	uint8_t n = logicDraw(&g, pDraw);
+	for(uint8_t i = 0; i < n; ++i) if(pDraw[i].bob == BOB_JET) return pDraw[i].frame;
+	return 0xFF;
+}
+
+static uint8_t missilesLive(void) {
+	uint8_t n = 0;
+	for(int k = 0; k < ESHOT_MAX; ++k) n = (uint8_t)(n + (g.pEShots[k].active && g.pEShots[k].kind == ESHOT_MISSILE));
+	return n;
+}
+
+static void testJetTellTable(void) {
+	static const uint8_t pWant[6] = {16, 24, 20, 16, 14, 12};
+	for(uint8_t d = 0; d <= 5; ++d) {
+		jetTellGame(d, 0);
+		CHECK(logicJetTell(&g) == pWant[d]);
+		CHECK(logicJetTell(&g) >= 12);
+	}
+	jetTellGame(0, 0);
+	CHECK(logicJetTell(&g) == JET_TELL_NORMAL);   // GODMODE plays like normal
+	CHECK(g_pBobFrames[BOB_JET] == 16);           // 8 headings, then the same 8 flashing
+	CHECK(MISSILE_SPEED == 44);                   // the missile's speed is unchanged
+}
+
+// No jet missile without its whole tell, on every difficulty and every alert
+// level: the flash for logicJetTell pictures, started by the beep, ended by the missile
+static void testNoJetMissileWithoutATell(void) {
+	uint16_t uwTotal = 0;
+	for(uint8_t d = 0; d <= 5; ++d) {
+		for(uint8_t a = 0; a <= 5; ++a) {
+			jetTellGame(d, a);
+			uint8_t ubTell = logicJetTell(&g);
+			uint16_t uwRun = 0, uwShots = 0, uwPlaced = 0;
+			uint8_t isBeep = 0;
+			for(int f = 0; f < 3000; ++f) {
+				if(!g.pAir[0].active) jetPlace((uint8_t)(uwPlaced++));
+				g.chop.damage = 0;
+				g.chop.x = 800; g.chop.y = 500;
+				step(NONE, 1);
+				uint8_t ubFrame = jetFrame();
+				uint8_t isFlash = ubFrame != 0xFF && ubFrame >= 8;
+				uint8_t isFired = missilesLive() || (g.events & EV_MISSILE);
+				if(g.events & EV_LOCKON) {
+					CHECK(!uwRun);                    // a tell begins from nothing...
+					CHECK(isFlash);                   // ... flashing at once
+					isBeep = 1;
+				}
+				if(isFired) {
+					++uwShots;
+					CHECK(uwRun == ubTell);           // the whole tell, no more no less
+					CHECK(isBeep);                    // started by the beep
+					CHECK(!isFlash || !g.pAir[0].active);
+					uwRun = 0;
+					isBeep = 0;
+				}
+				else if(isFlash) ++uwRun;
+				else { uwRun = 0; isBeep = 0; }
+				for(int k = 0; k < ESHOT_MAX; ++k) g.pEShots[k].active = 0;
+			}
+			CHECK(uwShots >= 5);                      // and the jets do fire
+			uwTotal = (uint16_t)(uwTotal + uwShots);
+		}
+	}
+	printf("jet tell: %u missiles over 36 difficulty/alert runs, every one after its full tell\n", uwTotal);
+}
+
+// The tell is cancelled when the jet leaves the screen, breaks off, is lost
+// from the gunship (it lands, or is more than JET_TELL_RANGE away): no missile
+static void testJetTellAborts(void) {
+	for(uint8_t ubWhy = 0; ubWhy < 4; ++ubWhy) {
+		jetTellGame(3, 0);
+		tAir *a = &g.pAir[0];
+		jetPlace(0);                              // 120 px east: on screen? the middle is within 160 px: yes
+		a->x = (int16_t)(g.chop.x + 90);
+		a->y = (int16_t)(g.chop.y - 20);
+		a->heading = 12;
+		a->timer = 0;
+		step(NONE, 1);
+		CHECK((g.events & EV_LOCKON) && a->ubTell);
+		CHECK(jetFrame() >= 8 && jetFrame() != 0xFF);
+		step(NONE, 3);
+		CHECK(a->ubTell);
+		if(ubWhy == 0) { a->x = (int16_t)(g.chop.x + 400); a->heading = 4; }   // off screen, flying away
+		if(ubWhy == 1) a->done = 1;                                           // it breaks off
+		if(ubWhy == 2) g.chop.landed = 1;                                     // the gunship lands
+		if(ubWhy == 3) { a->x = (int16_t)(g.chop.x + 150); a->y = (int16_t)(g.chop.y + 100); a->heading = 4; }   // on screen, but 200 px away
+		uint8_t ubFrames = 0;
+		for(int f = 0; f < 60; ++f) {
+			step(NONE, 1);
+			CHECK(!missilesLive() && !(g.events & EV_MISSILE));
+			if(!a->ubTell && !ubFrames) ubFrames = (uint8_t)(f + 1);
+		}
+		CHECK(ubFrames == 1);                     // the tell stopped at once
+		CHECK(!a->ubTell && (jetFrame() == 0xFF || jetFrame() < 8));
+	}
+	// after an abort the jet waits before it tries again
+	jetTellGame(3, 0);
+	tAir *a = &g.pAir[0];
+	jetPlace(0);
+	a->x = (int16_t)(g.chop.x + 90); a->y = (int16_t)(g.chop.y - 20); a->heading = 12; a->timer = 0;
+	step(NONE, 2);
+	CHECK(a->ubTell);
+	a->x = (int16_t)(g.chop.x + 400); a->heading = 4;
+	step(NONE, 1);
+	CHECK(!a->ubTell && a->timer >= JET_TELL_PAUSE - 1);
+}
+
 static void testClearTheatreThenNext(void) {
 	newTheatre(800, 300);
 	g.uwJetTimer = g.uwBomberTimer = g.uwBoatTimer = 60000;
@@ -1201,6 +1347,9 @@ int main(void) {
 	testCruiserEscalatesAndRewards();
 	testJetsDoNotCampTheDeck();
 	testOneJetAtATimeNearTheCarrier();
+	testJetTellTable();
+	testNoJetMissileWithoutATell();
+	testJetTellAborts();
 	testClearTheatreThenNext();
 	testTitleStartsAGame();
 	testTestJumpOnlyInGodmode();

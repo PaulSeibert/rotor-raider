@@ -55,6 +55,13 @@ decay = 3
 volume = 40
 priority = 3
 
+[sfx.lockon]              # an interceptor has locked on: a short high beep (its missile tell)
+wave = "square"
+steps = [[1760, 0.07]]
+decay = 6
+volume = 38
+priority = 3
+
 [sfx.hit]                 # the gunship takes a hit: a metal clang
 wave = "square"
 steps = [[220, 0.03], [185, 0.05], [147, 0.08]]
