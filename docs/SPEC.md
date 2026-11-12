@@ -15,6 +15,12 @@ Line references like `enemies.c:236` are at 2804254. "Derived" means worked out 
 tables, not measured in a run. "Landing" meant in flight on another branch when this was written;
 all of it has since landed on `main` (section 12).
 
+**Updated 2026-11-12 (v1.2 of this spec, for release 1.5):** Paul decided to add the three polish
+features of Rotor Rescue: a hall of fame saved to the floppy, an attract loop with a demo, and a
+card before each theatre. Section 10.1 specifies them, marked "decided by Paul, 2026-11-12"; the
+decisions are 11-13 at the end. They are built from the kit's `hiscore`, `attract` and `missionmap`
+techniques (each technique's `TECHNIQUE.md` is its own spec).
+
 **Updated 2026-11-11 (v1.1 of this spec, on `main` 8b897e5):** Paul's decisions on the open
 questions about the tells and the README are recorded below, marked "decided by Paul, 2026-11-11",
 and the landed work is described as landed (the pilot art and the restyled HUD, the jet break-off,
@@ -41,7 +47,7 @@ tradition, built from scratch: our own code, art, title march and sound; two cre
    missile (16 frames on normal, decided by Paul, 2026-11-11), and the deck is always safe from guns.
 
 **Not:** a scrolling shooter with waves; a game with a boss per level (the cruiser is one set
-piece a theatre); a game with an attract loop or a save (neither exists).
+piece a theatre); a game with an animated ending (the ending is still two lines of text).
 
 ## 2. Target machine
 
@@ -442,15 +448,63 @@ right.
 |---|---|
 | boot | the Desert Palms Software logo (16 colours, 4 reloaded per line, ~320 colours), faded by the copper, fire skips |
 | title | the ROTOR RAIDER logo (160x146, 3 planes, 7 pens reloaded on each of its 146 lines: 319 colours) over the slowly panning theatre; "BY PAUL ROSS SEIBERT", copyright, the steering choice (left classic, right arcade), PRESS FIRE; an alternating credits page for the music (on 1 MB-chip machines) |
-| attract loop | **gap:** none (no hall of fame, no demo) |
+| attract loop | **1.5 (decided by Paul, 2026-11-12):** left alone on the title for 12 s: the hall of fame (8 s), then a self-playing demo, a recorded bombing run in Coral Reach, then the title again; fire ends any page. Section 10.1 |
 | options | the steering on the title; difficulty by Ctrl+L |
-| mission flow | on a theatre's start: its name for 220 frames over the play; a HUD message for each factory, the cruiser, the carrier sunk. **Gap:** no route map, preview card or brief |
+| mission flow | **1.5 (decided by Paul, 2026-11-12):** before each theatre a card (5 s, a fresh press of fire skips it): THEATRE n OF 3, its name, the island's map from the tile map with the carrier and the factories, a one-line brief, and the route across the three theatres; then its name for 220 frames over the play as before; a HUD message for each factory, the cruiser, the carrier sunk. Section 10.1 |
 | in play | HUD (40 lines under the 216-line play area): score, hi-score, gunships left (HELI), damage bar, bombs, SK(ill), the carrier's strength, the shipyard's progress (YARD, becomes ENEMY with the cruiser's strength), factories left, the compass arrow to home, and a 40 x 32 minimap of the whole theatre (a pixel per 4 x 4 tiles: red factories, yellow carrier, white you, orange planes). A yellow pointer at the edge of the play area points home when it is off screen (blinks when out of bombs or at damage 70+) |
 | end of theatre | THEATRE CLEARED, ALL FACTORIES DESTROYED, NEXT: name; 400 frames; the next theatre loads |
 | game over | GAME OVER, score, rank, 350 frames, then the title |
-| high scores | **gap:** one hi-score (starts at 10,000), not saved to disk, no table, no initials |
+| high scores | **1.5 (decided by Paul, 2026-11-12):** a top-5 hall of fame (initials, score, theatre reached, factories destroyed) saved to the game's floppy (`raiderscores`); a score that makes it asks for initials; the HUD's HI is the table's best. Section 10.1 |
 | ending | ALL THEATRES CLEARED, THE IRON COMBINE IS BROKEN, score and rank, 350 frames. **Gap:** not animated |
 | credits | the title's second page for the music; the release zip's `CREDITS.txt`. No art credits page (all art is ours; the Retro Diffusion pilot's tool is named here) |
+
+### 10.1 Hall of fame, attract loop, theatre card (1.5, decided by Paul, 2026-11-12)
+
+Built from the kit's techniques `hiscore`, `attract` and `missionmap` (`~/amiga-game-kit/techniques/`),
+copied into `src/` (`hiscore.c/h`, `hiscore_disk.c`, `attract.c/h`, `missionmap.c/h`).
+
+**Hall of fame.**
+- Five entries, best first: three initials, the score, the theatre reached (CORAL, EMBER, FROST, or
+  ALL once the last theatre is cleared: stored 1-4) and the factories destroyed over the game (a
+  count, 18 at most). An equal score ranks below the one already there.
+- Defaults on a fresh disk: DPS 10,000 ALL 18; PRS 6,000 FROST 14; KES 3,000 EMBER 9; MIR 1,500 EMBER 7;
+  ACE 500 CORAL 3. The HUD's HI is the table's best and rises live in games that count.
+- **Invincible (GODMODE) games and the demo never count** (no entry, no HI).
+- When a game ends (GAME OVER or ALL THEATRES CLEARED, 350 frames, or fire after 100 of them) a
+  score that makes the table asks for initials: up/down a letter (held: every 9 frames), fire the next
+  letter, left back one; fire held from the end screen is not a press; 30 s with no input and what is
+  chosen stands. Then the table (400 frames, the new entry between dashes), "SAVING TO DISK...", the
+  save, and "SAVED TO DISK" (or "DISK WRITE-PROTECTED: NOT SAVED", "DISK ERROR: NOT SAVED"). Fire
+  does not skip the table until the save is done.
+- The file: `raiderscores` in the floppy's root, 56 bytes: magic `RDH1`, five entries (initials, theatre,
+  factories, score; big-endian), a 16-bit checksum. Read during the splash at boot; a missing or damaged
+  file gives the defaults. Written through AmigaDOS with the OS briefly back: `Info()` finds a
+  write-protected disk first (nothing is written), requesters are off, and the OS keeps running 2 s after
+  the file is closed so the file system and trackdisk flush. The save is between pictures and costs no
+  game frame.
+- Tests (not for players): Ctrl+L then H reads the file again; Ctrl+L then E ends the game now.
+
+**Attract loop.** Idle on the title (no fire) for 600 frames (12 s): the hall of fame for 400 frames,
+then the demo, then the title. Fire ends the hall or the demo and returns to the title; it must be
+let go and pressed again to start a game. The title's second page (the music's credits, on machines
+that load the modules) stays as it is: it is the title's own, so the cycle has no separate credits page.
+- **The demo** is a recorded flight on Coral Reach: take-off from the carrier, a run to a factory and
+  its bombs (recorded from `tests/demo.agk`, converted by the kit's `tools/scen2demo.py` into
+  `src/demodata.c`). It starts from a fixed game state (the theatre loaded fresh, `lfsr` 0xACE1,
+  `frame` a fixed number, classic steering, difficulty 3), so it flies the same every time. A "DEMO" marker
+  replaces the skill in the HUD. It ends when its inputs run out, the gunship is lost or fire is pressed
+  (after it has been let go); the player's steering and difficulty come back; the scores and HI are not
+  touched; the theatre is loaded fresh behind the title.
+
+**Theatre card.** After the title's fire and after each CLEARED screen, once the theatre is loaded: the
+card for 250 frames. A fresh press of fire skips it (fire held from the title or the end screen does not);
+then the theatre's name shows over the play for 220 frames as before. The card shows THEATRE n OF 3,
+the theatre's name, the island map (the tile map at one pixel a tile, 160 x 128: sea, coast, land), the six
+factories (standing: red; destroyed: a dark mark), the carrier (yellow) and a "you are here" marker at the
+gunship (white), the route (three nodes: cleared ticked, this one marked, the next ones open) and a one-line
+brief from the theatre's tables ("6 FACTORIES  3 BOMBS EACH  CRUISER 3:00"). The map is drawn once into
+fast RAM when the theatre loads and copied into chip RAM at the card (drawing it in the frame took
+1.6 frames in Rotor Rescue). The play, the enemies and the clocks wait; nothing is drawn but the card.
 
 **README drift (a doc bug, fixed 2026-11-11):** the download table linked `rotor-raider-1.3.zip`
 while `agk.toml` and "New in 1.4" said 1.4; it now links 1.4. (**Decided by Paul, 2026-11-11.** The
@@ -566,6 +620,16 @@ disk is writable and keys are held in real time.)
 9. **The README's download table** says 1.4, and "New in 1.4" lists the new art, HUD and minimap, the
    jet break-off, the key fix and these tells. The v1.3 tag is not touched.
 
+**Decided by Paul, 2026-11-12:**
+11. **A hall of fame saved to the floppy** (kit technique `hiscore`): top 5 with initials, score, the
+    theatre reached and the factories destroyed; GODMODE and the demo never count. (Section 10.1.)
+12. **An attract loop** (kit technique `attract`): title, hall of fame, a recorded demo (a short
+    bombing run in Coral Reach), title; fire ends any page. (Section 10.1.)
+13. **A card before each theatre** (kit technique `missionmap`): the island's map from the tile map,
+    the carrier, the factories, the theatre's name and brief, and the route across the three theatres.
+    (Section 10.1.) All three are Rotor Rescue's polish features, extracted into the kit so F-35 ACE and
+    later games get them nearly free.
+
 **Status, not a decision:**
 10. The carrier duplicate-draw bug: **open, not reproduced in vAmiga.** It is on no commit. (Section 12.)
 
@@ -576,8 +640,8 @@ disk is writable and keys are held in real time.)
 4. The pacing numbers come from a scripted GODMODE run that rarely reaches the cruiser or the
    2-minute alert steps. Is a human or longer run wanted?
 5. Fire-to-play and theatre load times on a real floppy are unmeasured. Budget?
-6. No hi-score table, no save, no attract loop, no animated ending. Which are wanted before the next
-   release?
+6. ~~No hi-score table, no save, no attract loop~~: **decided 2026-11-12, built in 1.5** (decisions
+   11-13). Still open: no animated ending.
 7. Does it boot on 512K chip + no expansion? README says 1 MB; the playbook's master is 512K.
 8. Add `docs/STYLE.md` (a copy of the pilot's) now that the art has landed?
 
@@ -587,3 +651,4 @@ disk is writable and keys are held in real time.)
 |---|---|---|
 | v1.0 | 2026-11-11 | retroactive: the game as it is at `main` 2804254 (v1.4); the approved art, the HUD and the jet-camping fix are noted as landing |
 | v1.1 | 2026-11-11 | decided by Paul: the hardest AA tell 8 -> 12 frames (table as it plays 24 / 20 / 16 / 16 / 12: Paul asked for 14 on skill 4, quantised to the guns' 4-frame cadence); interceptor missiles get a tell (16 frames on normal, scaled the same, a jet flash and a lock-on beep, aborted when the jet leaves the screen); the README download table follows the version. Landed and described as landed: the pilot art, the restyled HUD with a working minimap (merge 25cbff5), the jet break-off near decks (8b897e5), the key latch (d8fe879). The carrier duplicate-draw report: open, not reproduced in vAmiga. Pacing re-measured on the jet-tell build: threat mean 0.62 / 0.96 / 1.33 (was 0.64 / 1.02 / 1.35), shots fired a minute 29 / 44 / 66 (was 30 / 46 / 67), rest beats 9 / 8 / 8 (was 12 / 10 / 9) |
+| v1.2 | 2026-11-12 | decided by Paul: release 1.5 adds a hall of fame saved to the floppy (top 5, GODMODE and the demo never count), an attract loop with a recorded Coral Reach demo, and a card before each theatre (map, carrier, factories, brief, route). Section 10.1; decisions 11-13; open question 6 closed except the ending |
