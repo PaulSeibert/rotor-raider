@@ -33,6 +33,15 @@ faster-built cruiser) and **Frostline** (5, and missiles almost at once).
 
 All versions are on the [Releases page](https://github.com/PaulSeibert/rotor-raider/releases).
 
+**New in 1.4:**
+- every AA gun warns before it fires: its barrels hold still and glow red, then flash;
+- flak flies at half the speed (1.5 px a frame): keep moving and it bursts behind you;
+- the music in the air keeps all four voices (the rotor used to take one all game);
+- sound effects in stereo, on the side of the screen where they happen;
+- the cruiser is a proper fight: its strength on the HUD, and ignored it closes in, then launches jets; sinking it repairs the carrier;
+- Ember Flats and Frostline press harder than before (more flak, earlier jets);
+- the title music plays on all four channels.
+
 **New in 1.3:**
 - a new title logo;
 - music by Songerson on Amigas with 1 MB of chip RAM or more, with a credits page on the title;
@@ -110,10 +119,17 @@ the score bar (SK3) and stays until you change it.
   its pier repairs it more. Sink the boats, finish what you start.
 - Destroy the radar stations and the interceptors stop finding you.
 - Bomb the shipyard to set the cruiser back. If it sails, sink it (it takes
-  five bombs) before it sinks the carrier.
+  five bombs) before it sinks the carrier: the HUD's YARD bar becomes ENEMY,
+  the cruiser's strength in red. Leave it alone for 45 s and it closes in
+  twice as fast, firing twice as often; for 90 s and it launches a jet at you
+  every 20 s (each hit on it restarts the clock). Sinking it is worth 3000
+  points and repairs the carrier.
 - If the carrier sinks, the airstrip is your only place to land.
 - Damage shows on the HUD bar; at 100% the gunship goes down. You have four.
-- An AA gun's barrels show where it's aiming, and they flash when it fires.
+- An AA gun's barrels show where it's aiming. Before every round they hold
+  still and glow red for about a third of a second (16 frames on normal,
+  longer on the easier settings): that's your warning. Then they flash and
+  fire.
 - The HUD shows the score, gunships left, damage, bombs, the carrier's
   strength, the shipyard's progress, factories left and a map of the whole
   theatre (red: factories, yellow: the carrier, white: you, orange: planes).

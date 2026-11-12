@@ -13,7 +13,7 @@ allow = ["titleCamFit"]                             # (when the title starts)
 
 [release]                                            # agk release: the zip for Aminet / itch.io (agk help-release)
 title = "Rotor Raider"
-version = "1.3"
+version = "1.4"
 author = "Paul Ross Seibert"
 short = "Helicopter strike game for the Amiga 500" # one line, up to 40 characters
 type = "game/shoot"                                   # Aminet type: game/shoot, game/jump, game/race, game/misc
