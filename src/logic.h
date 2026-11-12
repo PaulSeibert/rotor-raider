@@ -246,6 +246,7 @@ typedef struct {
 	uint32_t events;           // EV_* of the latest frame
 	int16_t pEvX[32];          // where (world x) the latest event of each kind happened (by bit)
 	uint16_t uwShotsFired;     // flak and missiles fired at the gunship (pacing: tools/pace.py)
+	uint16_t uwDeckGrace;          // frames left of the jets' grace after the gunship leaves a deck
 } tGame;
 
 // events bits
@@ -338,6 +339,8 @@ void logicThreat(const tGame *g, uint8_t *pAir, uint8_t *pShots);
 #define MISSILE_ALERT 3        // from this alert level turrets fire missiles
 #define JET_SPEED 56           // 3.5 px a frame
 #define JET_HP 2
+#define JET_DECK_GRACE 150     // frames after take-off with no new attack run (jets break off on deck too)
+#define JET_DECK_ZONE 250      // px: near the carrier, one jet at a time commits to the gunship
 #define JET_EVERY 900          // frames between jets (radar and alert make it less)
 #define BOMBER_SPEED 24
 #define BOMBER_HP 4

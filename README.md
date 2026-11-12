@@ -238,6 +238,14 @@ Version 1.4, normal difficulty, A500:
   2-minute alert steps or the cruiser, which add to these numbers later in
   a theatre. Landing on the carrier stays a rest beat: a gun never fires at
   a gunship on deck.
+- Jets and the deck: until now they homed on the gunship wherever it was, so
+  one sitting on the carrier drew jets that overshot, turned and circled it
+  (a jet held within 150 px of the deck for 26 s, two at a time), then
+  ambushed it on take-off. Now, while the gunship is on a deck or going down
+  to one, and for 3 s after take-off, every jet breaks off and flies out, no
+  new jet is called (the timer waits) and the cruiser launches none; and near
+  the carrier only one jet at a time commits to the gunship. Open play is
+  unchanged. In 85 s on deck: 60 jet-seconds within 150 px before, 0 after.
 
 ## Building
 
