@@ -6,7 +6,7 @@ boot = "AGK ready"                                   # serial text that means "f
 unit_sources = ["src/logic.c", "src/theatre.c", "src/enemies.c", "src/hiscore.c", "src/missionmap.c", "src/cardmap.c", "src/attract.c", "src/demodata.c"]                       # host-compiled for agk unit (no Amiga headers!)
 
 [lint]                                               # functions that look per-frame but run once
-allow = ["titleCamFit"]                             # (when the title starts)
+allow = ["titleCamFit", "deferredLoad"]                             # (when the title starts)
 
 [cmake]                                              # build options, see CMakeLists.txt
 # ACE_BOB_WRAP_Y = false

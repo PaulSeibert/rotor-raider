@@ -112,7 +112,7 @@ static UBYTE s_isSplash;         // the Desert Palms Software logo is showing
 static UBYTE s_ubAfterSplash;    // frames since it ended (its memory goes after 2)
 static UBYTE s_isReady;
 static UBYTE s_isScoresRead;     // deferredLoad has run
-static void deferredLoad(void);     // the hall of fame's file has been read (on the splash)
+__attribute__((noinline)) static void deferredLoad(void);     // the hall of fame and the other floppy loads, once, on the first game picture
 
 // The theatre card (the kit's missionmap): its picture, drawn once per theatre
 // into fast RAM (a static array) when the theatre loads, copied into each frame
