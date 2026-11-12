@@ -454,7 +454,7 @@ right.
 | in play | HUD (40 lines under the 216-line play area): score, hi-score, gunships left (HELI), damage bar, bombs, SK(ill), the carrier's strength, the shipyard's progress (YARD, becomes ENEMY with the cruiser's strength), factories left, the compass arrow to home, and a 40 x 32 minimap of the whole theatre (a pixel per 4 x 4 tiles: red factories, yellow carrier, white you, orange planes). A yellow pointer at the edge of the play area points home when it is off screen (blinks when out of bombs or at damage 70+) |
 | end of theatre | THEATRE CLEARED, ALL FACTORIES DESTROYED, NEXT: name; 400 frames; the next theatre loads |
 | game over | GAME OVER, score, rank, 350 frames, then the title |
-| high scores | **1.5 (decided by Paul, 2026-11-12):** a top-5 hall of fame (initials, score, theatre reached, factories destroyed) saved to the game's floppy (`raiderscores`); a score that makes it asks for initials; the HUD's HI is the table's best. Section 10.1 |
+| high scores | **1.5 (decided by Paul, 2026-11-12):** a top-5 hall of fame (initials, score, theatre reached, factories destroyed) saved to the game's floppy (`raiderscores`); a score that makes it asks for initials, typed on the Amiga keyboard or with the stick (**requirement, decided by Paul, 2026-11-12**); the HUD's HI is the table's best. Section 10.1 |
 | ending | ALL THEATRES CLEARED, THE IRON COMBINE IS BROKEN, score and rank, 350 frames. **Gap:** not animated |
 | credits | the title's second page for the music; the release zip's `CREDITS.txt`. No art credits page (all art is ours; the Retro Diffusion pilot's tool is named here) |
 
@@ -473,7 +473,16 @@ copied into `src/` (`hiscore.c/h`, `hiscore_disk.c`, `attract.c/h`, `missionmap.
 - When a game ends (GAME OVER or ALL THEATRES CLEARED, 350 frames, or fire after 100 of them) a
   score that makes the table asks for initials: up/down a letter (held: every 9 frames), fire the next
   letter, left back one; fire held from the end screen is not a press; 30 s with no input and what is
-  chosen stands. Then the table (400 frames, the new entry between dashes), "SAVING TO DISK...", the
+  chosen stands. **The initials can be typed on the Amiga keyboard (requirement, decided by Paul,
+  2026-11-12; the DPS polish baseline for every DPS Amiga game; the behaviour is the kit's
+  `hiscore` technique, "Keyboard entry")**: A-Z and 0-9 (the digit row and the keypad) enter that
+  character at the cursor and move on (the third ends the entry, as fire on the last place does);
+  Space enters a space; Backspace blanks the place before and moves back; Return confirms at once,
+  the places not reached keeping what they had; the stick keeps working and the two can be mixed;
+  any key restarts the 30 s; upper case only, shifted or not (raw keycodes: the key's place on a
+  US-style keyboard). **While the entry is up the game's own keys are off:** P, M, Ctrl+L and the
+  test keys behind it, Esc, B and Space-as-fire are ignored (typing P or M must not pause the game
+  or mute the music; Esc does not quit). Then the table (400 frames, the new entry between dashes), "SAVING TO DISK...", the
   save, and "SAVED TO DISK" (or "DISK WRITE-PROTECTED: NOT SAVED", "DISK ERROR: NOT SAVED"). Fire
   does not skip the table until the save is done.
 - The file: `raiderscores` in the floppy's root, 56 bytes: magic `RDH1`, five entries (initials, theatre,
@@ -651,4 +660,5 @@ disk is writable and keys are held in real time.)
 |---|---|---|
 | v1.0 | 2026-11-11 | retroactive: the game as it is at `main` 2804254 (v1.4); the approved art, the HUD and the jet-camping fix are noted as landing |
 | v1.1 | 2026-11-11 | decided by Paul: the hardest AA tell 8 -> 12 frames (table as it plays 24 / 20 / 16 / 16 / 12: Paul asked for 14 on skill 4, quantised to the guns' 4-frame cadence); interceptor missiles get a tell (16 frames on normal, scaled the same, a jet flash and a lock-on beep, aborted when the jet leaves the screen); the README download table follows the version. Landed and described as landed: the pilot art, the restyled HUD with a working minimap (merge 25cbff5), the jet break-off near decks (8b897e5), the key latch (d8fe879). The carrier duplicate-draw report: open, not reproduced in vAmiga. Pacing re-measured on the jet-tell build: threat mean 0.62 / 0.96 / 1.33 (was 0.64 / 1.02 / 1.35), shots fired a minute 29 / 44 / 66 (was 30 / 46 / 67), rest beats 9 / 8 / 8 (was 12 / 10 / 9) |
+| v1.3 | 2026-11-12 | requirement, decided by Paul (the DPS polish baseline, all DPS Amiga games): the hall of fame's initials can be typed on the Amiga keyboard, alone or mixed with the stick; the game's own keys (P, M, Ctrl+L, Esc, B, Space as fire) are off while the entry is up. Section 10.1; kit technique `hiscore` (Keyboard entry); `tests/initials.agk`, `tests/unit/test_logic.c` testInitialsTyped |
 | v1.2 | 2026-11-12 | decided by Paul: release 1.5 adds a hall of fame saved to the floppy (top 5, GODMODE and the demo never count), an attract loop with a recorded Coral Reach demo, and a card before each theatre (map, carrier, factories, brief, route). Section 10.1; decisions 11-13; open question 6 closed except the ending |

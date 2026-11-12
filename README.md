@@ -34,7 +34,7 @@ faster-built cruiser) and **Frostline** (5, and missiles almost at once).
 All versions are on the [Releases page](https://github.com/PaulSeibert/rotor-raider/releases).
 
 **New in 1.5:**
-- **a hall of fame saved to the disk**: the five best scores with your initials, the theatre you reached and the factories you destroyed. A score that makes the table asks for your initials (stick up/down for a letter, fire for the next, left to go back; 30 s and what you chose stands), shows the table and writes it to the game disk (`raiderscores`). The HUD's HI is the table's best. Games in GODMODE never count. On a write-protected disk it says so and the scores are lost at power-off;
+- **a hall of fame saved to the disk**: the five best scores with your initials, the theatre you reached and the factories you destroyed. A score that makes the table asks for your initials (type them on the keyboard, Backspace to correct, Return when done, or use the stick: up/down for a letter, fire for the next, left to go back; the two can be mixed; 30 s and what you chose stands), shows the table and writes it to the game disk (`raiderscores`). The HUD's HI is the table's best. Games in GODMODE never count. On a write-protected disk it says so and the scores are lost at power-off;
 - **a card before each theatre**: THEATRE 2 OF 3, its name, a map of the island with the six factories, the carrier and where you are, the route across the three theatres (the ones you have cleared ticked off), and a one-line brief (how many bombs a factory takes, how long the cruiser needs). A fresh press of fire skips it;
 - **an attract loop**: leave the title alone for 12 s and it shows the hall of fame, then plays itself - a recorded flight that takes off from the carrier and bombs the nearest factory down, with DEMO in the HUD - then returns to the title. Fire ends any page. The demo never touches your scores or settings;
 - all three come from new techniques in the Amiga Game Kit (`hiscore`, `missionmap`, `attract`), extracted from Rotor Rescue, so the next games get them nearly for free.
@@ -96,7 +96,7 @@ Choose the steering on the title screen with left/right.
 | Hold fire (0.3 s) | Drop a bomb | same |
 | Second button (or B) | Drop a bomb at once; then holding fire fires the gun continuously | same |
 
-Keys: arrows, Space = fire, B = bomb, P = pause, M = music on/off, Esc = quit.
+Keys: arrows, Space = fire, B = bomb, P = pause, M = music on/off, Esc = quit. When your score makes the hall of fame: type your initials, or use the stick (those keys are then just letters: P, M and Esc don't pause, mute or quit).
 
 **Bombs** fall ahead of you in an arc: the blinking marker on the ground
 shows where. You carry 8. **Land** on the carrier's deck (or the friendly
@@ -146,7 +146,8 @@ the score bar (SK3) and stays until you change it.
   screen; its missile leaves 16 frames later on normal (24 on easiest, 12 on
   hardest). Get off its line, or out of its sight, and it holds its fire.
 - Your score goes in the **hall of fame** if it is in the top five (not in GODMODE).
-  Enter your initials with the stick; the table is saved on the disk you booted
+  Type your initials on the keyboard (A-Z, 0-9, Space, Backspace to correct, Return
+  when done) or use the stick; the table is saved on the disk you booted
   from (so use a copy of the ADF that isn't write-protected: in WinUAE, untick
   "write-protected" on the floppy; on a real Amiga, slide the tab shut). The file
   is `raiderscores`, 56 bytes; delete it to get the default table back.
