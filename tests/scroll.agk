@@ -1,25 +1,34 @@
 # The 8-way terrain scroller: off the carrier, flying flat out (2.5 px a frame)
-# east, then north, then south-west: the terrain above the gunship moves the
-# other way, smoothly, across tile columns, tile rows and the ring's wrap.
+# north, then south-west, then east: the terrain moves the other way, smoothly,
+# across tile columns, tile rows and the ring's wrap.
 # Classic steering: left/right turn (a step every 4 frames), up thrusts.
+# Each leg is measured over land and coast (Coral Reach's middle island): the
+# open-sea tiles are sparse and repeat every 16 px, too little to track.
 wait-serial "AGK t0"
 wait 10
 press fire 2
 wait-serial "theatre loaded=0"
 wait 10
 hold up
-wait 90
-expect-scroll 0 0 319 70 140 -5/2 0
+wait 150
 release
 press left 13
 hold up
 wait 90
-expect-scroll 0 0 319 70 140 0 5/2
+# north along the island's east coast: the strip left of the gunship
+expect-scroll 0 0 110 215 140 0 5/2
 release
 press left 21
 hold up
-wait 200
-expect-scroll 0 0 319 70 140 7/4 -7/4
+wait 60
+# south-west across the island: the rows under the gunship's shadow
+expect-scroll 0 165 319 215 140 7/4 -7/4
 screenshot southwest
+release
+press left 21
+hold up
+wait 90
+# east along its south coast
+expect-scroll 0 0 319 70 140 -5/2 0
 release
 expect-no-serial "AGK ERR"
