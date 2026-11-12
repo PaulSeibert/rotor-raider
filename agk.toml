@@ -3,7 +3,7 @@ profile = "a500"                                     # default for agk run
 test_profiles = ["a500", "a500-ks31", "a500-aros", "a1200"]   # agk test runs all of these
 sync = "ticks"                                       # waits count game frames (agkPerfBegin marks them)
 boot = "AGK ready"                                   # serial text that means "first frame is on screen"
-unit_sources = ["src/logic.c", "src/theatre.c", "src/enemies.c"]                       # host-compiled for agk unit (no Amiga headers!)
+unit_sources = ["src/logic.c", "src/theatre.c", "src/enemies.c", "src/hiscore.c"]                       # host-compiled for agk unit (no Amiga headers!)
 
 [lint]                                               # functions that look per-frame but run once
 allow = ["titleCamFit"]                             # (when the title starts)

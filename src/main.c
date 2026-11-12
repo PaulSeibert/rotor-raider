@@ -136,7 +136,7 @@ __attribute__((noinline)) static void chopperUpdate(UBYTE ubBfr) {
 	const tGame *g = &s_sGame;
 	UBYTE ubFrame = logicChopperFrame(g);
 	WORD wX = (WORD)(g->chop.x - g->camX - 16), wY = (WORD)(g->chop.y - g->camY - 16);
-	if(wY < -32 || wY > PLAY_H - 8 || g->state == GS_TITLE || (g->chop.crashed && !g->chop.alt)) wY = -64;
+	if(wY < -32 || wY > PLAY_H - 8 || logicIsMenu(g) || (g->chop.crashed && !g->chop.alt)) wY = -64;
 	UWORD uwVStart = (UWORD)(s_pView->ubPosY + wY), uwVStop = (UWORD)(uwVStart + ART_CHOPPER_H);
 	for(UBYTE p = 0; p < ART_CHOPPER_PARTS; ++p) {
 		tBitMap *pBm = s_pChopFrames[ubBfr][ubFrame][p];
@@ -665,7 +665,7 @@ static void logoQueue(UBYTE ubBfr) {
 __attribute__((noinline)) static void objectsQueue(UBYTE ubBfr) {
 	logoQueue(ubBfr);
 	tBitMap *pFb = s_pFb[ubBfr];
-	UBYTE n = logicDraw(&s_sGame, s_pDraw);
+	UBYTE n = s_sGame.state == GS_SCORES ? 0 : logicDraw(&s_sGame, s_pDraw);   // (the hall of fame: just its text)
 	if(s_sGame.state == GS_TITLE) {
 		// (the logo isn't redrawn: nothing may cross it, BOB or gun sprite)
 		tDraw *pTo = s_pDraw;
@@ -828,10 +828,11 @@ static void rotorDestroy(void) {
 static UBYTE s_ubModules;          // Songerson's modules in chip RAM (0 on a 512 KB-chip A500)
 
 static void musicFor(UBYTE ubState) {
+	if(ubState == GS_ENTRY) return;   // (the end screen's song plays on)
 	UBYTE ubSong = 0xFF;
 	// Songerson's modules where they're in chip RAM (loaded at boot if it had
 	// room), else the game's own small songs: the title's theme, quiet in the air
-	if(ubState == GS_TITLE) ubSong = soundMusicLoaded(SOUND_MUSIC_DOG68) ? SOUND_MUSIC_DOG68 : SOUND_MUSIC_THEME;
+	if(ubState == GS_TITLE || ubState == GS_SCORES) ubSong = soundMusicLoaded(SOUND_MUSIC_DOG68) ? SOUND_MUSIC_DOG68 : SOUND_MUSIC_THEME;
 	else if(ubState == GS_PLAY || ubState == GS_LOST) ubSong = soundMusicLoaded(SOUND_MUSIC_DOG70) ? SOUND_MUSIC_DOG70 : 0xFF;
 	else if(ubState == GS_CLEAR || ubState == GS_VICTORY) ubSong = SOUND_MUSIC_FANFARE;
 	else if(ubState == GS_OVER) ubSong = SOUND_MUSIC_GAMEOVER;
@@ -938,13 +939,16 @@ static UBYTE textType(tAgkText *pText, char *pStage, const char *szTarget, UBYTE
 // into the frame buffer by the CPU after the blitter's done. A BOB's erase may
 // cross them: the letters it crossed are drawn again (as in Rotor Rescue).
 
-#define MSG_LINES 12
+#define MSG_LINES 19
 #define MSG_LEN 40
 #define MSG_TYPE_PER_FRAME 3
-// lines 0-5 in play (a theatre cleared, the end), 6-11 the title's, under its logo
+// lines 0-5 in play (a theatre cleared, the end, the initials), 6-11 the title's, under its
+// logo, 12-18 the hall of fame's (the logo is gone then)
 #define MSG_TITLE 6
-static const UBYTE s_pMsgY[MSG_LINES] = {104, 116, 136, 148, 170, 190, 152, 162, 174, 184, 196, 206};
-#define MSG_Y_MIN 104
+#define MSG_SCORES 12
+static const UBYTE s_pMsgY[MSG_LINES] = {104, 116, 136, 148, 170, 190, 152, 162, 174, 184, 196, 206,
+	20, 40, 52, 64, 76, 88, 112};
+#define MSG_Y_MIN 20
 #define MSG_Y_MAX 206
 _Static_assert(LOGO_Y + LOGO_H + 2 < 152, "the title's text is under the logo");
 static tAgkText s_pMsg[2][MSG_LINES];
@@ -954,8 +958,9 @@ static ULONG s_pMsgFix[2][MSG_LINES][2];    // columns an erase crossed: redraw 
 static UBYTE s_pMsgAnyFix[2];
 static UWORD s_pMsgKey[2] = {0xFFFF, 0xFFFF};
 static char s_pMsgTarget[2][MSG_LINES][MSG_LEN + 1];   // what each line is to say
-static UWORD s_pMsgPending[2];                          // lines still being typed (bits)
-static UWORD s_pMsgText[2];                             // lines with letters on them (bits)
+static ULONG s_pMsgPending[2];                          // lines still being typed (bits)
+static ULONG s_pMsgText[2];                             // lines with letters on them (bits)
+static UBYTE s_ubDiskStatus;                            // HI_DISK_*: the hall of fame on the floppy (shown under it)
 
 static void msgInit(void) {
 	for(UBYTE b = 0; b < 2; ++b) {
@@ -988,7 +993,7 @@ static void msgCover(UBYTE ubBfr, WORD x, WORD y, UWORD ubW, UBYTE ubH) {
 	if(c0 < 0) c0 = 0;
 	if(c1 > MSG_LEN - 1) c1 = MSG_LEN - 1;
 	for(UBYTE l = 0; l < MSG_LINES; ++l) {
-		if((s_pMsgText[ubBfr] & (1 << l)) && y < s_pMsgY[l] + 8 && y + ubH > s_pMsgY[l]) {
+		if((s_pMsgText[ubBfr] & (1UL << l)) && y < s_pMsgY[l] + 8 && y + ubH > s_pMsgY[l]) {
 			for(WORD c = c0; c <= c1; ++c) s_pMsgCover[ubBfr][l][c >> 5] |= 1UL << (c & 31);
 		}
 	}
@@ -1035,14 +1040,57 @@ static void creditsLines(char *szA, char *szB) {
 	for(char *p = szB; *p; ++p) if(*p >= 'a' && *p <= 'z') *p = (char)(*p - 32);
 }
 
+// A hall of fame line: " 1  ABC  012345  CORAL   14 FACT ", the new entry between dashes
+__attribute__((noinline, optimize("Os"))) static void scoreRow(char *szOut, UBYTE i) {
+	const tHiScore *s = &s_sGame.table.pEntries[i];
+	char szX[HI_EXTRA_W + 1];
+	UBYTE n = 0;
+	agkTextNumber(szX, s->extra, 2);   // (18 at most: 3 theatres of 6)
+	n = 2;
+	for(const char *p = " FACT"; *p; ++p) szX[n++] = *p;
+	szX[n] = 0;
+	hiRow(szOut, &s_sGame.table, i, i == s_sGame.newRank, logicReachedWord(s->reached), szX);
+}
+
 // What the lines say (laid out when it changes). Lines that go blank are
 // cleared at once by the blitter (queued before the objects), not typed away.
 __attribute__((noinline)) static void msgPrepare(UBYTE ubBfr) {
 	const tGame *g = &s_sGame;
-	const char *pText[MSG_LINES] = {"", "", "", "", "", "", "", "", "", "", "", ""};
+	const char *pText[MSG_LINES];
+	for(UBYTE l = 0; l < MSG_LINES; ++l) pText[l] = "";
 	char szA[MSG_LEN + 1], szB[MSG_LEN + 1], szC[MSG_LEN + 1];
+	char pRows[HI_COUNT][HI_ROW_LEN + 1];
 	UBYTE n;
+	UWORD uwKeyHall = 0;   // the hall of fame and the initials lay themselves out by their own key
 	switch(g->state) {
+		case GS_SCORES:
+			pText[MSG_SCORES] = "HALL OF FAME";
+			for(UBYTE i = 0; i < HI_COUNT; ++i) {
+				scoreRow(pRows[i], i);
+				pText[MSG_SCORES + 1 + i] = pRows[i];
+			}
+			pText[MSG_SCORES + 6] = g->newRank < HI_COUNT ? hiDiskText(s_ubDiskStatus) : "";
+			uwKeyHall = (UWORD)(0x6000 | s_ubDiskStatus << 4 | g->newRank);
+			break;
+		case GS_ENTRY: {
+			// the initials: up/down a letter, fire the next, the current one blinking
+			const tHiScore *s = &g->table.pEntries[g->newRank];
+			n = 0; strCat(szB, &n, "RANK 1   ");
+			szB[5] = (char)('1' + g->newRank);
+			agkTextNumber(&szB[n], s->score, 6); n = (UBYTE)(n + 6); szB[n] = 0;
+			pText[0] = "GREAT SCORE!";
+			pText[1] = szB;
+			pText[2] = "ENTER YOUR INITIALS";
+			UBYTE isBlink = (g->frame >> 4) & 1;
+			for(UBYTE c = 0; c < HI_NAME; ++c) {
+				szA[2 * c] = (c == g->edit.ubPos && isBlink) ? '-' : s->name[c];
+				szA[2 * c + 1] = ' ';
+			}
+			szA[2 * HI_NAME - 1] = 0;
+			pText[3] = szA;
+			pText[4] = "UP/DOWN LETTER  FIRE NEXT  LEFT BACK";
+			uwKeyHall = (UWORD)(0x7000 | (g->frame & 0xFFF));   // (a letter, the cursor or the blink: every picture)
+		} break;
 		case GS_TITLE:
 			pText[MSG_TITLE + 0] = "BY PAUL ROSS SEIBERT";
 			pText[MSG_TITLE + 1] = "@ 2026 DESERT PALMS SOFTWARE";
@@ -1079,19 +1127,19 @@ __attribute__((noinline)) static void msgPrepare(UBYTE ubBfr) {
 			break;
 	}
 	// what the lines say changes rarely: lay them out only then
-	UWORD uwKey = (UWORD)(g->state << 12 | g->steer << 4 | g->theatre << 2 |
+	UWORD uwKey = uwKeyHall ? uwKeyHall : (UWORD)(g->state << 12 | g->steer << 4 | g->theatre << 2 |
 		(g->state == GS_TITLE ? ((g->frame >> 5) & 1) | (titleCreditsPage(g) << 1) : 0));
 	if(uwKey == s_pMsgKey[ubBfr]) return;
 	s_pMsgKey[ubBfr] = uwKey;
 	for(UBYTE l = 0; l < MSG_LINES; ++l) {
 		// (a line blank before and after: its target is blank already)
-		if(!pText[l][0] && !((s_pMsgText[ubBfr] | s_pMsgPending[ubBfr]) & (1 << l))) continue;
+		if(!pText[l][0] && !((s_pMsgText[ubBfr] | s_pMsgPending[ubBfr]) & (1UL << l))) continue;
 		msgCentre(s_pMsgTarget[ubBfr][l], pText[l]);
 		if(pText[l][0]) {
-			s_pMsgPending[ubBfr] |= (UWORD)(1 << l);
-			s_pMsgText[ubBfr] |= (UWORD)(1 << l);   // (letters to come)
+			s_pMsgPending[ubBfr] |= 1UL << l;
+			s_pMsgText[ubBfr] |= 1UL << l;   // (letters to come)
 		}
-		else if(s_pMsgText[ubBfr] & (1 << l)) {
+		else if(s_pMsgText[ubBfr] & (1UL << l)) {
 			// blank now: one blit clears the line (and its shadow row)
 			tAgkBlitArea sArea = {
 				.pD = s_pFb[ubBfr]->Planes[0] + s_pFbRowOffs[s_pMsgY[l]] + FB_X0 / 8,
@@ -1108,8 +1156,8 @@ __attribute__((noinline)) static void msgPrepare(UBYTE ubBfr) {
 			if(s_pLogoShown[ubBfr] && s_pMsgY[l] < LOGO_Y + LOGO_H) s_pLogoShown[ubBfr] = 0;
 			tAgkText *pT = &s_pMsg[ubBfr][l];
 			for(UBYTE c = 0; c < MSG_LEN; ++c) s_pMsgStage[ubBfr][l][c] = pT->szShown[c] = ' ';
-			s_pMsgPending[ubBfr] &= (UWORD)~(1 << l);
-			s_pMsgText[ubBfr] &= (UWORD)~(1 << l);
+			s_pMsgPending[ubBfr] &= ~(1UL << l);
+			s_pMsgText[ubBfr] &= ~(1UL << l);
 			s_pMsgFix[ubBfr][l][0] = s_pMsgFix[ubBfr][l][1] = 0;
 		}
 	}
@@ -1126,7 +1174,7 @@ __attribute__((noinline)) static void msgUpdate(UBYTE ubBfr) {
 		ULONG *pFix = s_pMsgFix[ubBfr][l];
 		const char *szLine = s_pMsgTarget[ubBfr][l];
 		UBYTE isChange = 0;
-		if(s_pMsgPending[ubBfr] & (1 << l)) {
+		if(s_pMsgPending[ubBfr] & (1UL << l)) {
 			UBYTE isDone = 1;
 			for(UBYTE c = 0; c < MSG_LEN; ++c) {
 				if(pStage[c] != szLine[c]) {
@@ -1139,14 +1187,14 @@ __attribute__((noinline)) static void msgUpdate(UBYTE ubBfr) {
 				}
 			}
 			if(isDone) {
-				s_pMsgPending[ubBfr] &= (UWORD)~(1 << l);
+				s_pMsgPending[ubBfr] &= ~(1UL << l);
 				UBYTE isBlank = 1;
 				for(UBYTE c = 0; c < MSG_LEN; ++c) if(pStage[c] != ' ') { isBlank = 0; break; }
-				if(isBlank) s_pMsgText[ubBfr] &= (UWORD)~(1 << l);
-				else s_pMsgText[ubBfr] |= (UWORD)(1 << l);
+				if(isBlank) s_pMsgText[ubBfr] &= ~(1UL << l);
+				else s_pMsgText[ubBfr] |= 1UL << l;
 			}
 		}
-		if((pFix[0] | pFix[1]) && (s_pMsgText[ubBfr] & (1 << l))) {
+		if((pFix[0] | pFix[1]) && (s_pMsgText[ubBfr] & (1UL << l))) {
 			tAgkText *pT = &s_pMsg[ubBfr][l];
 			for(UBYTE c = 0; c < MSG_LEN; ++c) {
 				if((pFix[c >> 5] & (1UL << (c & 31))) && pStage[c] != ' ') {
@@ -1407,7 +1455,7 @@ __attribute__((noinline)) static void miniUpdate(UBYTE ubBfr) {
 		miniDot(pBase, g->carrier.x, g->carrier.y, 6);
 		miniDot(pBase, (WORD)(g->carrier.x + 64), g->carrier.y, 6);
 	}
-	if(g->state != GS_TITLE && (g->frame & 8)) miniDot(pBase, g->chop.x, g->chop.y, 4);
+	if(!logicIsMenu(g) && (g->frame & 8)) miniDot(pBase, g->chop.x, g->chop.y, 4);
 }
 
 // a * b / c for small values, by the 68000's 16-bit multiply and divide
@@ -1445,7 +1493,7 @@ __attribute__((noinline)) static void hudUpdate(UBYTE ubBfr) {
 	static UBYTE pDmg[2] = {0xFF, 0xFF}, pShip[2] = {0xFF, 0xFF};
 	static UWORD pYard[2] = {0xFFFF, 0xFFFF};
 	static UBYTE pPending[2] = {0x0F, 0x0F};   // lines (bits) still being typed
-	static ULONG pScore[2] = {~0UL, ~0UL};
+	static ULONG pScore[2] = {~0UL, ~0UL}, pHi[2] = {~0UL, ~0UL};
 	static UBYTE pGod[2] = {0, 0}, pCruiserLabel[2] = {0, 0};
 	static UWORD pLineKey[2][HUD_LINES] = {{0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF}, {0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF}};
 	const tGame *g = &s_sGame;
@@ -1458,7 +1506,7 @@ __attribute__((noinline)) static void hudUpdate(UBYTE ubBfr) {
 		(UWORD)(g->chop.bombs | g->difficulty << 4),
 		(UWORD)(g->factoriesLeft | homeArrow(g) << 4 | g->cruiser.active << 8),
 	};
-	UBYTE isScore = g->score != pScore[ubBfr];
+	UBYTE isScore = g->score != pScore[ubBfr] || g->hiScore != pHi[ubBfr];
 	for(UBYTE l = 0; l < HUD_LINES; ++l) {
 		if(pKeys[l] == pLineKey[ubBfr][l] && !(l == 1 && isScore)) continue;
 		pLineKey[ubBfr][l] = pKeys[l];
@@ -1474,6 +1522,7 @@ __attribute__((noinline)) static void hudUpdate(UBYTE ubBfr) {
 		}
 		else if(l == 1) {
 			pScore[ubBfr] = g->score;
+			pHi[ubBfr] = g->hiScore;
 			agkTextNumber(&szLine[6], g->score, 6);
 			agkTextNumber(&szLine[17], g->hiScore, 6);
 			szLine[31] = (char)('0' + g->lives);
@@ -1540,6 +1589,25 @@ __attribute__((noinline)) static void hudUpdate(UBYTE ubBfr) {
 // Ctrl+L, then 0-5 within 2 s (0 = invincible, for testing), as in Rotor Rescue
 
 static UBYTE s_ubSkillKeyWait;
+
+// "AGK scores names=DPS/PRS/..." best first, then the top and last scores (tests)
+static void scoresReport(void) {
+	char szLine[] = "AGK scores names=AAA/AAA/AAA/AAA/AAA\n";
+	for(UBYTE i = 0; i < HI_COUNT; ++i)
+		for(UBYTE c = 0; c < HI_NAME; ++c) szLine[17 + 4 * i + c] = s_sGame.table.pEntries[i].name[c];
+	agkPrint(szLine);
+	agkState("top", (LONG)s_sGame.table.pEntries[0].score);
+	agkState("last", (LONG)s_sGame.table.pEntries[HI_COUNT - 1].score);
+	agkEnd();
+}
+
+// The table from the floppy (none yet: the defaults); the HUD's HI follows
+static void scoresLoad(void) {
+	agkPrint(hiDiskLoad(&s_sGame.table, &g_sHiConfig) == HI_DISK_LOADED ? "AGK scores loaded\n" : "AGK scores default\n");
+	s_sGame.hiScore = hiTop(&s_sGame.table);
+	scoresReport();
+}
+
 static const UBYTE s_pDigitKeys[6] = {KEY_0, KEY_1, KEY_2, KEY_3, KEY_4, KEY_5};
 
 // The keys that act once (P, M, Ctrl+L, 9, 0-5) are latched at the end of a
@@ -1554,6 +1622,8 @@ static const UBYTE s_pDigitKeys[6] = {KEY_0, KEY_1, KEY_2, KEY_3, KEY_4, KEY_5};
 #define KL_MUSIC 2
 #define KL_SKILL 4                    // Ctrl+L
 #define KL_JUMP 8                     // 9
+#define KL_HISCORE 16                 // H: read the hall of fame's file again (tests)
+#define KL_END 32                     // E: end the game now (tests)
 static UBYTE s_ubKeysLatched, s_ubDigitLatched;   // KL_*; the digit + 1 (0: none)
 
 static void keysLatch(void) {
@@ -1561,16 +1631,30 @@ static void keysLatch(void) {
 	if(keyUse(KEY_M)) s_ubKeysLatched |= KL_MUSIC;
 	if(keyCheck(KEY_CONTROL) && keyUse(KEY_L)) s_ubKeysLatched |= KL_SKILL;
 	if(keyUse(KEY_9)) s_ubKeysLatched |= KL_JUMP;
+	if(keyUse(KEY_H)) s_ubKeysLatched |= KL_HISCORE;
+	if(keyUse(KEY_E)) s_ubKeysLatched |= KL_END;
 	for(UBYTE d = 0; d < 6; ++d) if(keyUse(s_pDigitKeys[d])) s_ubDigitLatched = (UBYTE)(d + 1);
 }
 
 static void skillKeys(void) {
 	UBYTE ubKeys = s_ubKeysLatched, ubDigit = s_ubDigitLatched;
-	s_ubKeysLatched &= (UBYTE)~(KL_SKILL | KL_JUMP);
+	s_ubKeysLatched &= (UBYTE)~(KL_SKILL | KL_JUMP | KL_HISCORE | KL_END);
 	s_ubDigitLatched = 0;
 	if(ubKeys & KL_SKILL) s_ubSkillKeyWait = 100;
 	if(!s_ubSkillKeyWait) return;
 	--s_ubSkillKeyWait;
+	if(ubKeys & KL_HISCORE) {
+		// the hall of fame read from the disk again, as at boot (tests)
+		s_ubSkillKeyWait = 0;
+		scoresLoad();
+		agkPerfSkip();
+		return;
+	}
+	if(ubKeys & KL_END) {
+		s_ubSkillKeyWait = 0;
+		if(logicTestEnd(&s_sGame)) agkPrint("AGK test end\n");
+		return;
+	}
 	if(ubKeys & KL_JUMP) {
 		// (testing) GODMODE: to the next factory
 		s_ubSkillKeyWait = 0;
@@ -1665,6 +1749,8 @@ void genericCreate(void) {
 	agkState("bands", s_sTheatre.ubBands);
 	agkEnd();
 	logicInit(&s_sGame, s_sTheatre.map.pTiles, s_sTheatre.map.uwW, s_sTheatre.map.uwH);
+	scoresLoad();   // (the hall of fame's file, while the OS is still ours)
+	agkPerfSkip();
 	logicLoadTheatre(&s_sGame, &s_sTheatre);
 	s_sGame.state = GS_TITLE;
 	s_sGame.titleX0 = s_sGame.camX;
@@ -1736,6 +1822,24 @@ static void theatreLoad(UBYTE ubTheatre) {
 	s_ubSkipFrames = 3;   // (its first pictures lay everything out, and clear the title)
 	s_uwDuskClock = 0;
 	s_ubDusk = 0xFF;
+}
+
+// A new entry in the hall of fame: "SAVING TO DISK..." for a moment, then the
+// save (a few seconds of OS time, between pictures), then how it went
+__attribute__((noinline, optimize("Os"))) static void scoresSave(void) {
+	tGame *g = &s_sGame;
+	if(g->state != GS_SCORES) return;
+	if(s_ubDiskStatus != HI_DISK_SAVING) {
+		s_ubDiskStatus = HI_DISK_SAVING;
+		return;
+	}
+	if(g->stateTimer > SCORES_FRAMES - 120) return;   // (the table and this line type themselves first)
+	g->scoresChanged = 0;
+	s_ubDiskStatus = hiDiskSave(&g->table, &g_sHiConfig);
+	agkPrint(s_ubDiskStatus == HI_DISK_SAVED ? "AGK scores saved\n" :
+		s_ubDiskStatus == HI_DISK_PROTECTED ? "AGK scores not saved: write-protected\n" : "AGK scores not saved: disk error\n");
+	scoresReport();
+	agkPerfSkip();
 }
 
 __attribute__((noinline)) static void reportState(void) {
@@ -1879,6 +1983,7 @@ void genericProcess(void) {
 	agkPerfEnd();
 	while(timerGet() - s_ulFrameVbl < 1) continue;
 	keysLatch();   // (for the next picture: see keysLatch)
+	if(s_sGame.scoresChanged) scoresSave();
 
 	if(s_sGame.frame == 2) {
 		agkState("copper_used", s_uwCopUsed);

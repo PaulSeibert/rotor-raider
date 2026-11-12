@@ -13,6 +13,7 @@
 #define _LOGIC_H_
 
 #include <stdint.h>
+#include "hiscore.h"   // the hall of fame (the kit's hiscore technique)
 
 // a 16 x 16 -> 32 bit multiply: the 68000's muls.w (int maths would call a
 // slow library routine), plain C on the host for the unit tests
@@ -198,7 +199,9 @@ typedef struct {
 	uint16_t uwStall;          // frames since it sailed or was last hit (the anti-stall clock)
 } tCruiser;
 
-enum { GS_TITLE, GS_PLAY, GS_LOST, GS_CLEAR, GS_OVER, GS_VICTORY };
+enum { GS_TITLE, GS_PLAY, GS_LOST, GS_CLEAR, GS_OVER, GS_VICTORY,
+	GS_SCORES,   // the hall of fame: after a new entry (the attract loop shows it too)
+	GS_ENTRY };  // a score that made the table: the player's initials
 enum { MSG_NONE, MSG_THEATRE, MSG_FACTORY, MSG_CRUISER, MSG_SUNK, MSG_CRUISER_SUNK, MSG_RELOAD, MSG_REPAIR, MSG_CRUISER_UP };
 extern const char *const g_pTheatreName[3];   // (THEATRES)
 
@@ -248,6 +251,12 @@ typedef struct {
 	int16_t pEvX[32];          // where (world x) the latest event of each kind happened (by bit)
 	uint16_t uwShotsFired;     // flak and missiles fired at the gunship (pacing: tools/pace.py)
 	uint16_t uwDeckGrace;          // frames left of the jets' grace after the gunship leaves a deck
+	// the hall of fame (1.5): the kit's hiscore technique
+	tHiTable table;                // best first; main.c reads and writes the file
+	tHiEdit edit;                  // the initials being chosen
+	uint8_t newRank;               // the entry being or just made (HI_COUNT: none)
+	uint8_t scoresChanged;         // set when an entry is done: main.c saves the table
+	uint16_t killed;               // factories destroyed this game (a hall of fame field)
 } tGame;
 
 // events bits
@@ -408,6 +417,16 @@ uint8_t logicMissileAlert(const tGame *g);
 uint8_t logicTurretTell(const tGame *g);   // frames an AA gun winds up before it fires
 uint8_t logicJetTell(const tGame *g);      // frames a jet flashes before its missile leaves
 void logicSetDifficulty(tGame *g, uint8_t ubLevel);   // 0 invincible .. 5
+
+// The hall of fame (1.5; section 10.1 of the spec). A game that doesn't count
+// (GODMODE, 0) never ranks.
+#define SCORES_FRAMES 400      // the table shows this long
+#define SCORES_SKIP 100        // game over: fire skips it after this many of its frames
+extern const tHiConfig g_sHiConfig;
+void logicScoresDefault(tGame *g);                  // the fresh disk's table
+uint8_t logicIsMenu(const tGame *g);                // the title or the hall of fame
+const char *logicReachedWord(uint8_t ubReached);    // CORAL, EMBER, FROST, ALL
+uint8_t logicTestEnd(tGame *g);                     // tests: the game ends now (as game over)
 void logicStartGame(tGame *g);             // from the title: theatre 0 (main.c loads it)
 void logicHitChopper(tGame *g, uint8_t ubDamage);
 void logicStructRepair(tGame *g, tStruct *s, uint8_t ubHp);

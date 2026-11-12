@@ -95,8 +95,9 @@ void logicInit(tGame *g, uint8_t *pTiles, uint16_t uwW, uint16_t uwH) {
 	g->camX = (int16_t)(g->chop.x - SCREEN_W / 2);
 	g->camY = (int16_t)(g->chop.y - PLAY_H / 2);
 	g->difficulty = 3;
-	g->hiScore = 10000;
 	g->lives = LIVES_START;
+	g->newRank = HI_COUNT;
+	logicScoresDefault(g);
 	g->wantTheatre = 0xFF;
 }
 
@@ -105,7 +106,7 @@ void logicSetDifficulty(tGame *g, uint8_t ubLevel) {
 }
 
 static void setState(tGame *g, uint8_t ubState, uint16_t uwTimer) {
-	if(ubState == GS_TITLE) {
+	if(ubState == GS_TITLE || ubState == GS_SCORES) {
 		g->titleX0 = g->camX;
 		g->titleY0 = (int16_t)(g->camY > 140 ? g->camY - 140 : 0);   // (the carrier off the bottom: under the text)
 		g->titleFrame = 0;
@@ -118,9 +119,61 @@ static void setState(tGame *g, uint8_t ubState, uint16_t uwTimer) {
 void logicStartGame(tGame *g) {
 	g->lives = LIVES_START;
 	g->score = 0;
+	g->killed = 0;
 	g->theatre = 0;
 	g->wantTheatre = 0;            // main.c loads it, then logicLoadTheatre
 	setState(g, GS_PLAY, 0);
+}
+
+// ------------------------------------------------------------ hall of fame ---
+// The kit's hiscore technique (src/hiscore.c); the file is main.c's. Section 10.1.
+
+const tHiConfig g_sHiConfig = {"RDH1", THEATRES + 1, "raiderscores"};
+
+// Code that runs between games (menus, the hall of fame): small, not inlined
+// into the per-frame update (the A500's slow RAM is nearly full)
+#if defined(__GNUC__) && !defined(__clang__)
+#define COLD __attribute__((noinline, optimize("Os")))
+#else
+#define COLD __attribute__((noinline))
+#endif
+
+COLD void logicScoresDefault(tGame *g) {
+	// reached: 1-3 the theatre, 4 all three cleared; extra: factories destroyed
+	static const tHiScore pDefaults[HI_COUNT] = {
+		{"DPS", 4, 18, 10000}, {"PRS", 3, 14, 6000}, {"KES", 2, 9, 3000}, {"MIR", 2, 7, 1500}, {"ACE", 1, 3, 500},
+	};
+	hiDefaults(&g->table, pDefaults);
+	g->hiScore = hiTop(&g->table);
+}
+
+COLD const char *logicReachedWord(uint8_t ubReached) {
+	return ubReached == 1 ? "CORAL" : ubReached == 2 ? "EMBER" : ubReached == 3 ? "FROST" : "ALL";
+}
+
+uint8_t logicIsMenu(const tGame *g) {
+	return g->state == GS_TITLE || g->state == GS_SCORES;
+}
+
+// After a game: the initials if the score made the table (not GODMODE, not the demo)
+COLD static void gameEnded(tGame *g) {
+	uint8_t r = hiQualify(&g->table, g->score, g->difficulty == 0, 0);
+	if(r >= HI_COUNT) {
+		g->titleArmed = 0;
+		setState(g, GS_TITLE, 0);
+		return;
+	}
+	g->newRank = hiInsert(&g->table, g->score, (uint8_t)(g->state == GS_VICTORY ? THEATRES + 1 : g->theatre + 1), g->killed);
+	g->hiScore = hiTop(&g->table);
+	hiEditBegin(&g->edit, g->newRank, HI_EDIT_FRAMES);
+	setState(g, GS_ENTRY, 0);
+}
+
+COLD uint8_t logicTestEnd(tGame *g) {
+	if(g->state != GS_PLAY) return 0;
+	g->lives = 0;
+	setState(g, GS_OVER, 1);
+	return 1;
 }
 
 // ------------------------------------------------------------- the map ---
@@ -262,6 +315,7 @@ void logicRespawn(tGame *g) {
 
 static void addScore(tGame *g, uint16_t uwPts) {
 	g->score += uwPts;
+	// GODMODE doesn't count for the hi-score
 	if(g->score > g->hiScore && g->difficulty) g->hiScore = g->score;
 }
 
@@ -331,6 +385,7 @@ static void structDamage(tGame *g, tStruct *s, uint8_t ubDmg) {
 	if(s->type == OBJ_FACTORY) {
 		s->stage = 2;
 		--g->factoriesLeft;
+		++g->killed;
 		logicEventAt(g, EV_FACTORY, cx);
 		addScore(g, 1000);
 	}
@@ -800,7 +855,7 @@ void logicCameraUpdate(tGame *g) {
 	const tChopper *c = &g->chop;
 	int16_t tx = (int16_t)(c->x - SCREEN_W / 2 + (c->vx >> CAM_LEAD));
 	int16_t ty = (int16_t)(c->y - PLAY_H / 2 + (c->vy >> CAM_LEAD));
-	if(g->state == GS_TITLE) {
+	if(logicIsMenu(g)) {
 		// a slow pan from where the camera was: east and back, a pixel every
 		// other frame (it never jumps: the scroller draws a tile row a frame)
 		uint16_t uwT = (uint16_t)(++g->titleFrame >> 1);
@@ -863,8 +918,22 @@ void logicUpdate(tGame *g, const tInput *pIn) {
 			break;
 		case GS_OVER:
 		case GS_VICTORY:
-			if(!g->stateTimer) {
+			if(!g->stateTimer || (pIn->fire && g->stateTimer < OVER_FRAMES - SCORES_SKIP)) gameEnded(g);
+			break;
+		case GS_ENTRY:
+			// the initials (up/down a letter, fire the next, left back one): then the table, saved
+			if(hiEditUpdate(&g->edit, &g->table, pIn->dx, pIn->dy, pIn->fire)) {
+				g->scoresChanged = 1;
 				g->titleArmed = 0;
+				setState(g, GS_SCORES, SCORES_FRAMES);
+			}
+			break;
+		case GS_SCORES:
+			// fire (let go first) or the time: the title; not before the save is done
+			if(!pIn->fire) g->titleArmed = 1;
+			if(!g->scoresChanged && (!g->stateTimer || (g->titleArmed && pIn->fire))) {
+				g->titleArmed = 0;
+				g->newRank = HI_COUNT;
 				setState(g, GS_TITLE, 0);
 			}
 			break;

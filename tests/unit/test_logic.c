@@ -1293,6 +1293,161 @@ static void testReloadAndRepairPrompts(void) {
 	CHECK(g.msg == MSG_REPAIR);
 }
 
+// ---- the hall of fame (1.5) ----
+
+static void endGameWith(uint32_t ulScore, uint8_t ubTheatre, uint8_t ubState) {
+	newTheatre(800, 300);
+	g.uwJetTimer = g.uwBomberTimer = g.uwBoatTimer = 60000;
+	g.score = ulScore;
+	g.theatre = ubTheatre;
+	g.killed = 7;
+	g.state = ubState;
+	g.stateTimer = 1;
+	step(NONE, 1);
+}
+
+// Defaults best first; the HUD's HI is the best; the file's config matches the game
+static void testHallDefaults(void) {
+	newTheatre(800, 300);
+	for(uint8_t i = 1; i < HI_COUNT; ++i) CHECK(g.table.pEntries[i].score < g.table.pEntries[i - 1].score);
+	CHECK(g.hiScore == hiTop(&g.table) && g.hiScore == 10000 && g.newRank == HI_COUNT);
+	CHECK(g_sHiConfig.ubReachedMax == THEATRES + 1);
+	uint8_t pDisk[HI_BYTES];
+	hiPack(&g.table, &g_sHiConfig, pDisk);
+	tHiTable t = g.table;
+	t.pEntries[2].score = 1;
+	CHECK(hiUnpack(&t, &g_sHiConfig, pDisk) && t.pEntries[2].score == g.table.pEntries[2].score);
+	pDisk[10] ^= 4;                               // damaged: the table stays as it is
+	t.pEntries[2].score = 1;
+	CHECK(!hiUnpack(&t, &g_sHiConfig, pDisk) && t.pEntries[2].score == 1);
+	CHECK(logicReachedWord(1)[0] == 'C' && logicReachedWord(2)[0] == 'E' && logicReachedWord(3)[0] == 'F' &&
+		logicReachedWord(THEATRES + 1)[0] == 'A');
+}
+
+// A score that makes the table: the initials with the stick, then the hall of
+// fame with the entry in place, to be saved; the theatre reached and the
+// factories destroyed go with it
+static void testScoreMakesTheHallOfFame(void) {
+	endGameWith(4500, 1, GS_OVER);                  // Ember Flats
+	CHECK(g.state == GS_ENTRY && g.newRank == 2);
+	CHECK(g.table.pEntries[3].score == 3000 && g.table.pEntries[4].score == 1500);   // shifted down
+	CHECK(g.table.pEntries[2].reached == 2 && g.table.pEntries[2].extra == 7 && g.table.pEntries[2].score == 4500);
+	CHECK(g.hiScore == 10000);
+	step((tInput){.fire = 1}, 3);                   // fire held from the end screen: nothing
+	CHECK(g.edit.ubPos == 0);
+	step(NONE, 1);
+	step((tInput){.dy = -1}, 1);                    // A -> B
+	step(NONE, 1);
+	step((tInput){.fire = 1}, 1);                   // next letter (starts as B)
+	step(NONE, 1);
+	step((tInput){.dy = -1}, 1);                    // -> C
+	step(NONE, 1);
+	step((tInput){.fire = 1}, 1);
+	step(NONE, 1);
+	step((tInput){.dy = -1}, 1);                    // -> D
+	step(NONE, 1);
+	CHECK(g.state == GS_ENTRY && g.edit.ubPos == 2);
+	step((tInput){.fire = 1}, 1);
+	CHECK(g.state == GS_SCORES && g.scoresChanged);
+	CHECK(g.table.pEntries[2].name[0] == 'B' && g.table.pEntries[2].name[1] == 'C' && g.table.pEntries[2].name[2] == 'D');
+	// fire doesn't leave the table until it has been saved (and was let go first)
+	step(NONE, 1);
+	step((tInput){.fire = 1}, 1);
+	CHECK(g.state == GS_SCORES);
+	g.scoresChanged = 0;                            // (main.c saved it)
+	step(NONE, 1);
+	step((tInput){.fire = 1}, 1);
+	CHECK(g.state == GS_TITLE && g.newRank == HI_COUNT);
+	CHECK(g.table.pEntries[2].score == 4500);
+}
+
+static void testHallTimesOut(void) {
+	// the table leaves by itself after SCORES_FRAMES
+	endGameWith(4500, 0, GS_OVER);
+	step(NONE, HI_EDIT_FRAMES + 2);                 // no input at all: the initials stand as they are
+	CHECK(g.state == GS_SCORES && g.table.pEntries[2].name[0] == 'A' && g.table.pEntries[2].reached == 1);
+	g.scoresChanged = 0;
+	step(NONE, SCORES_FRAMES + 1);
+	CHECK(g.state == GS_TITLE);
+	// too low: straight to the title
+	endGameWith(100, 0, GS_OVER);
+	CHECK(g.state == GS_TITLE && g.table.pEntries[4].score == 500);
+	// a new best raises the HI
+	endGameWith(12345, 2, GS_OVER);
+	CHECK(g.state == GS_ENTRY && g.newRank == 0 && g.hiScore == 12345 && hiTop(&g.table) == 12345);
+}
+
+// All three theatres cleared: reached ALL (the victory screen leads to the hall too)
+static void testVictoryReachesAll(void) {
+	endGameWith(15000, THEATRES - 1, GS_VICTORY);
+	CHECK(g.state == GS_ENTRY && g.newRank == 0 && g.table.pEntries[0].reached == THEATRES + 1);
+	CHECK(g.table.pEntries[1].score == 10000);
+}
+
+// GODMODE games never count: no entry, the table and the HI untouched
+static void testGodmodeNeverCounts(void) {
+	newTheatre(800, 300);
+	logicSetDifficulty(&g, 0);
+	g.score = 99999;
+	g.state = GS_OVER;
+	g.stateTimer = 1;
+	step(NONE, 1);
+	CHECK(g.state == GS_TITLE && g.table.pEntries[0].score == 10000 && g.hiScore == 10000);
+	// ... and its score doesn't raise the live HI either (a game that counts does)
+	for(uint8_t ubSkill = 0; ubSkill <= 3; ubSkill += 3) {
+		newTheatre(30 * TILE + 24, 30 * TILE + 48);
+		g.uwJetTimer = g.uwBomberTimer = g.uwBoatTimer = 60000;
+		logicSetDifficulty(&g, ubSkill);
+		g.hiScore = 500;
+		g.pStructs[0].hp = 1;
+		step((tInput){.fire2 = 1}, 1);
+		step(NONE, 40);
+		CHECK(g.score >= 1000);
+		CHECK(g.hiScore == (ubSkill ? g.score : 500));
+	}
+}
+
+// Game over: fire skips the screen after 100 frames of it
+static void testGameOverFireSkips(void) {
+	newTheatre(800, 300);
+	g.uwJetTimer = g.uwBomberTimer = g.uwBoatTimer = 60000;
+	g.score = 100;
+	g.state = GS_OVER;
+	g.stateTimer = OVER_FRAMES;
+	step((tInput){.fire = 1}, 50);
+	CHECK(g.state == GS_OVER);                      // too early
+	step((tInput){.fire = 1}, 60);
+	CHECK(g.state == GS_TITLE);
+}
+
+// The factories destroyed over a game are counted, from the start of a game
+static void testFactoriesKilledCounted(void) {
+	newTheatre(800, 300);
+	g.uwJetTimer = g.uwBomberTimer = g.uwBoatTimer = 60000;
+	g.killed = 5;
+	logicStartGame(&g);
+	CHECK(g.killed == 0);
+	g.state = GS_PLAY;
+	g.wantTheatre = 0xFF;
+	g.chop.x = 30 * TILE + 24;
+	g.chop.y = 30 * TILE + 48;
+	g.chop.alt = ALT_CRUISE;
+	g.pStructs[0].hp = BOMB_DAMAGE;
+	step((tInput){.fire2 = 1}, 1);
+	step(NONE, 40);
+	CHECK(g.pStructs[0].hp == 0 && g.killed == 1);
+}
+
+// Tests only: Ctrl+L, E ends the game now
+static void testTestEnd(void) {
+	newTheatre(800, 300);
+	g.score = 4500;
+	CHECK(logicTestEnd(&g));
+	step(NONE, 2);
+	CHECK(g.state == GS_ENTRY && g.lives == 0);
+	CHECK(!logicTestEnd(&g));                       // not in play: nothing
+}
+
 int main(void) {
 	testHeadingTable();
 	testStickToHeading();
@@ -1358,6 +1513,14 @@ int main(void) {
 	testLaterTheatresAreHarder();
 	testHomePointer();
 	testReloadAndRepairPrompts();
+	testHallDefaults();
+	testScoreMakesTheHallOfFame();
+	testHallTimesOut();
+	testVictoryReachesAll();
+	testGodmodeNeverCounts();
+	testGameOverFireSkips();
+	testFactoriesKilledCounted();
+	testTestEnd();
 	if(s_failures) {
 		printf("%d check(s) failed\n", s_failures);
 		return 1;

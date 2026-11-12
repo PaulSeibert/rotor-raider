@@ -1,0 +1,68 @@
+# A score for the hall of fame (1.5): GODMODE (Ctrl+L, 0), the test jump
+# (Ctrl+L, 9) by a factory, three bombs (1,000 points and more), then the
+# normal skill (Ctrl+L, 3: GODMODE games never count) and the game ends now
+# (Ctrl+L, E). The initials: P (15 steps up, held), R (2 more), S (1 more),
+# fire after each. The table shows the new entry and it goes to the floppy;
+# Ctrl+L, H reads the file back.
+wait-serial "AGK t0"
+# a fresh disk: no file, the defaults (read during the splash)
+expect-serial "AGK scores default\nAGK scores names=DPS/PRS/KES/MIR/ACE\nAGK top=10000 last=500"
+wait 10
+press fire 2
+wait-serial "theatre loaded=0"
+wait 10
+key 0x63
+key 0x28
+wait 5
+key 0x0A
+wait 30
+key 0x63
+key 0x28
+wait 5
+key 0x09
+wait 20
+press fire2 2
+wait 40
+press fire2 2
+wait 40
+press fire2 2
+wait-serial "factory destroyed"
+wait 40
+key 0x63
+key 0x28
+wait 5
+key 0x03
+wait 20
+key 0x63
+key 0x28
+wait 5
+key 0x12
+wait-serial "state=7" 100
+wait 60
+screenshot entry
+press up 127
+wait 1
+press fire 1
+wait 1
+press up 10
+wait 1
+press fire 1
+wait 1
+press up 1
+wait 1
+press fire 1
+wait-serial "state=6" 10
+wait-serial "scores names=" 600
+wait 40
+screenshot table
+# fifth, between the defaults' 1,500 and 500 (which drops off)
+expect-serial "AGK scores saved\nAGK scores names=DPS/PRS/KES/MIR/PRS\nAGK top=10000 last=1\d{3}"
+wait-serial "state=0" 600
+# back on the title: the file read again, as at boot
+key 0x63
+key 0x28
+wait 5
+key 0x25
+wait 30
+expect-serial "AGK scores loaded\nAGK scores names=DPS/PRS/KES/MIR/PRS\nAGK top=10000 last=1\d{3}"
+expect-no-serial "AGK ERR"
