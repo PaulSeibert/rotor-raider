@@ -12,8 +12,13 @@ Sources, used throughout: `src/logic.h` / `src/logic.c` (tuning, flight, weapons
 `tests/*.agk`, `tests/unit/test_logic.c`, `README.md` (the pacing table, from `tools/pacing.agk`
 and `tools/pace.py`) and the art pilot's `~/art-pilot/rotorraider/STYLE.md` (approved 2026-11-11).
 Line references like `enemies.c:236` are at 2804254. "Derived" means worked out from the code's
-tables, not measured in a run. "Landing" means in flight on another branch when this was written
-(section 12 lists them).
+tables, not measured in a run. "Landing" meant in flight on another branch when this was written;
+all of it has since landed on `main` (section 12).
+
+**Updated 2026-11-11 (v1.1 of this spec, on `main` 8b897e5):** Paul's decisions on the open
+questions about the tells and the README are recorded below, marked "decided by Paul, 2026-11-11",
+and the landed work is described as landed (the pilot art and the restyled HUD, the jet break-off,
+the key latch). Everything else is still the game as it was on 2026-11-11.
 
 ## 1. Pitch
 
@@ -32,8 +37,8 @@ tradition, built from scratch: our own code, art, title march and sound; two cre
    the turrets put 2-4 threats up.
 2. **Momentum is the feel:** classic steering glides and arcs (turning swings the nose and gun
    without changing where you go); arcade steering is snappy. The player chooses on the title.
-3. **Every gun warns:** each AA round has a tell (16 frames on normal) and the deck is always safe
-   from guns.
+3. **Every gun warns:** each AA round has a tell (16 frames on normal), so does every interceptor
+   missile (16 frames on normal, decided by Paul, 2026-11-11), and the deck is always safe from guns.
 
 **Not:** a scrolling shooter with waves; a game with a boss per level (the cruiser is one set
 piece a theatre); a game with an attract loop or a save (neither exists).
@@ -205,18 +210,35 @@ missiles at level 3 / 2 / 1 by theatre.
 
 | enemy | HP | movement | fire | tell | score |
 |---|---|---|---|---|---|
-| AA turret | 3 (the gun 1 a round, a bomb kills) | fixed; the gun turns toward you 1 of 8 aims every 4 frames from 200 px | flak at 1.5 px/frame, in range 120 px; from the alert level, 1 round in 4 is a homing missile (2.75 px/frame, life 110 frames, turns every 4 frames) | the barrels hold still and glow red 8-24 frames (16 normal), then flash for 4 frames | 100 |
+| AA turret | 3 (the gun 1 a round, a bomb kills) | fixed; the gun turns toward you 1 of 8 aims every 4 frames from 200 px | flak at 1.5 px/frame, in range 120 px; from the alert level, 1 round in 4 is a homing missile (2.75 px/frame, life 110 frames, turns every 4 frames) | the barrels hold still and glow red 12-24 frames (16 normal), then flash for 4 frames | 100 |
 | radar station | 4 (gun 1 a round, a bomb kills) | fixed | none; while one stands, jets home straight at you; with none they search | none | 250 |
-| interceptor jet | 2 (gun) | from a map-edge spawn, straight at you if a radar stands, 3.5 px/frame, turns every 4 frames (8 without radar) | a missile within 110 px when its nose is within one heading step of you, then 90 frames' wait; first shot at least 60 frames after spawn; ram 30 damage | the nose pointing at you (no flash) | 200 |
+| interceptor jet | 2 (gun) | from a map-edge spawn, straight at you if a radar stands, 3.5 px/frame, turns every 4 frames (8 without radar) | a missile within 110 px when its nose is within one heading step of you, on screen; it leaves only after its tell; then 90 frames' wait; first shot at least 60 frames after spawn; ram 30 damage | the nose pointing at you, then a yellow flash at the nose and wingtips and a lock-on beep for 12-24 frames (16 normal) before the missile leaves | 200 |
 | bomber | 4 (gun) | goes for the carrier, 1.5 px/frame | drops on it: 12 damage, then leaves | n/a | 300 |
 | supply boat | 3 (gun, or one bomb within 18 px) | in from open sea along a pier's axis, 0.6 px/frame | none | n/a | 150 |
 | **cruiser** | 40 (bomb 8, gun 1) | sails along the carrier's lane from the far side at 0.5 px/frame, stops 140 px from the carrier | shells the carrier (3 px/frame, 15 damage; 7 to sink it) every 120 frames | klaxon on sailing | 3000 |
 
-- **Tells: Gap vs playbook.** The AA tell is 16 frames on normal (24 / 20 / 16 / 12 / 8 on skills
-  1-5): at the hardest skill it is **8 frames, below the playbook's 12**. The interceptor jets' missiles
-  have **no flash tell**; the warning is the jet's approach and its nose lining up. Unit tests:
-  `testNoShotWithoutATell`, `testTellHoldsFireAndCantBeCut` (every flak and missile from a gun comes
-  after a tell; a hit never shortens it).
+- **Tells.** Every AA round and every interceptor missile has one (playbook: >= 12 frames).
+  - **AA guns** (**decided by Paul, 2026-11-11**): 16 frames on normal; 24 / 20 / 16 / 14 / 12 on
+    skills 1-5; GODMODE (0) is normal's 16. The hardest was 8 frames; it is now 12, the playbook's
+    floor. The hardest stays harder through its fire rate, flak damage and aim, not a shorter
+    warning. A gun is looked at every 4th frame, so its tell plays in steps of 4 frames: skill 4's
+    14 plays as 16 (the same glow as normal; skill 4 is harder through damage 10, aim +-8 and a
+    cooldown 20 shorter), and 12 plays as 12.
+  - **Interceptor missiles** (**decided by Paul, 2026-11-11**): 16 frames on normal, scaled by
+    difficulty like the AA table: 24 / 20 / 16 / 14 / 12 on skills 1-5, GODMODE 16 (a jet is looked
+    at every frame, so these are exact). When a jet is on screen, within 110 px of the gunship
+    and lined up, it does not fire at once: it flashes for the whole tell (a yellow-and-white
+    flare at the nose and both wingtips, frames 8-15 of the jet's 16) and a short lock-on beep
+    plays as it starts (`lockon`, on the jet's side of the screen, the channel policy of
+    section 9). It keeps flying. The missile leaves only when the tell ends. **Abort:** the tell
+    is cancelled (no missile, no beep again until a new one starts after a 30-frame pause) if the
+    jet leaves the screen, breaks off or is shot down, the gunship lands or is lost, or it gets
+    more than 160 px away. The missile's speed is unchanged (2.75 px/frame).
+  - Unit tests: `testNoShotWithoutATell`, `testTellHoldsFireAndCantBeCut` (every flak and missile
+    from a gun comes after a tell; a hit never shortens it), `testAaTellTable`,
+    `testNoJetMissileWithoutATell` and `testJetTellAborts` (every jet missile comes after its full
+    tell, on every difficulty and alert level; a jet that leaves the screen, breaks off or loses
+    the gunship during the tell fires nothing).
 - **Shot speeds. Gap vs playbook** (1-1.5 px/frame): flak 1.5 px/frame (met after 1.4: it was 3);
   **homing missiles 2.75 px/frame** and jets 3.5 px/frame (a ram). The cruiser's shells are 3 px/frame
   at the carrier, not at you.
@@ -244,7 +266,8 @@ Ctrl+L, then a key within two seconds; shown on the score bar (SK3). Tables `ene
 
 | | 1 easiest | 2 easy | **3 normal** | 4 hard | 5 hardest |
 |---|---|---|---|---|---|
-| AA tell (frames) | 24 | 20 | 16 | 12 | 8 |
+| AA tell (frames; 4-frame steps, so skill 4 plays as 16) | 24 | 20 | 16 | 14 | 12 |
+| interceptor missile tell (frames) | 24 | 20 | 16 | 14 | 12 |
 | flak damage (of 100) | 4 | 6 | 8 | 10 | 12 |
 | aim error (px, +-) | 32 | 24 | 16 | 8 | 4 |
 | gun cooldown | +60 | +30 | base 110 | -20 | -35 |
@@ -252,12 +275,14 @@ Ctrl+L, then a key within two seconds; shown on the score bar (SK3). Tables `ene
 | bombers come every | +900 | +450 | base | -350 | -600 frames |
 
 (the gun's cooldown is `110 - tell + skill + theatre - 8 * alert + rand(0..31)`, floor 30 - tell, so a
-gun never fires more than once in 30 frames, the tell included.) Skill 0 is GODMODE: it plays like
+gun never fires more than once in 30 frames, the tell included. The interceptors' 90-frame wait between
+missiles starts when the missile leaves, after the tell.) Skill 0 is GODMODE: it plays like
 skill 3 and nothing destroys the gunship (hits still show, damage stays 0); it doesn't set the
 hi-score.
 
 - **Never changes:** the maps, structures and their hit points, every speed, hit radius, the
-  carrier, the cruiser's anti-stall times, every tell existing, lives (4), bombs (8).
+  carrier, the cruiser's anti-stall times, every tell existing (and none shorter than 12 frames), lives
+  (4), bombs (8).
 - **The ramp:** the alert level inside a theatre (section 5), the theatre table in section 4 across
   theatres (factory 3 / 4 / 5 bombs, cruiser 3 / 2.5 / 2 min, missiles from alert 3 / 2 / 1, gun
   cooldown -35 / -60, jets 300 / 500 sooner).
@@ -269,8 +294,11 @@ hi-score.
   destroyed. No continue, no checkpoint: game over (350 frames) goes to the title.
 - **Exploit rules (from the code and tests):**
   - **Jets camping the deck** (a jet held within 150 px of the deck for 26 s, two at a time, then
-    ambushed the take-off): **landing** on branch `fix-jet-camping`, described there. Until it merges
-    this is a known bug, not a rule.
+    ambushed the take-off): **landed** (`b316f75`, merge 8b897e5). While the gunship is landed or going
+    down to a deck, and for 150 frames (`JET_DECK_GRACE`) after take-off, every jet breaks off and flies
+    out, no new jet is called (the timer waits) and the cruiser launches none; within 250 px
+    (`JET_DECK_ZONE`) of the carrier only one jet at a time commits to the gunship. Open play is
+    unchanged. A tell in progress when the gunship lands is cancelled.
   - Guns never fire at a landed gunship, so the deck is a free rest and repair: intended, but with
     jets circling it is a trap, hence the fix above.
   - Factories repair themselves (1 hp per 300 frames) and boats add 6 hp: finishing what you start
@@ -283,13 +311,15 @@ hi-score.
 
 ## 8. Art direction / style guide
 
-The approved direction is `~/art-pilot/rotorraider/STYLE.md` (approved 2026-11-11). **Landing:** an
-the integration is under way on branch `art-pilot-integration` (the terrain kit, the Frostline
-palettes, the pilot gunship, jet, bomber, boat, carrier, cruiser, explosion, puff and AA guns with
-their tell frames, goldens; and the HUD restyle with a framed minimap). Update this
-section after the merge. What `main` has today is the 1.0-1.4 look, drawn by
-`art/tools/tiles.py`, `sprites.py` and `theatres.py` (all our own code). A copy of the pilot's
-STYLE.md could join the repo as `docs/STYLE.md` (open question 8).
+The approved direction is `~/art-pilot/rotorraider/STYLE.md` (approved 2026-11-11). **Landed**
+(merge 25cbff5, 2026-11-11): the pilot terrain kit and the Frostline palettes, the pilot gunship, jet,
+bomber, boat, carrier, cruiser, explosion, puff and AA guns with their tell frames, goldens for them,
+and the HUD restyle with recessed wells and a framed minimap. The minimap had been **blank since 1.0**:
+a busy flag (`s_isHudTyping`) was never cleared, so it was drawn at most once; it is now per picture,
+and the factories' dots are found once per theatre (the A500 worst frame went from 95% to 92%). The
+small items (missile, flak, pointer, shot, bomb, reticle) are still drawn by `art/tools/sprites.py`,
+the terrain by `tiles.py` and `theatres.py` (all our own code). A copy of the pilot's STYLE.md could
+join the repo as `docs/STYLE.md` (open question 8).
 
 **Look:** sunlit military islands seen straight down, saturated sea and land, hard light from the
 top left, crisp 2-4 px clusters, 1-2 px cast shadows to the bottom right. Steel-grey enemy hardware
@@ -324,16 +354,17 @@ crest variant and 6% of land cells a forest or rock variant.
 bands (tile rows 0, 42, 85); where a band's first row comes on screen the copper reloads pens 2-7 (and
 the glitter). Pens 0 and 1 are forced equal across a theatre's bands, so the switch line must fall in
 open sea drawn only in pens 0 and 1 (the shared pens per boundary are tabulated in STYLE.md 7b).
-**Gap vs the rule, on `main` today:** the shipped sea tiles each carry one foam crest in pen 3; pen 3
-differs at Ember Flats band 2 to 3 (0xDDD to 0xCCC) and Frostline band 1 to 2 (0xEEF to 0xDDE), so
-those foam dashes change colour exactly on the switch line (`bandcheck.py`: the shipped art fails 2 of
-6 boundaries, the pilot passes all 6). The pilot's crests are pen 1 only: **landing**.
+**Closed by the art landing:** the 1.0-1.4 sea tiles each carried one foam crest in pen 3, which differs
+at Ember Flats band 2 to 3 (0xDDD to 0xCCC) and Frostline band 1 to 2 (0xEEF to 0xDDE), so those
+foam dashes changed colour exactly on the switch line. The pilot's crests are pen 1 only; on `main`
+(8b897e5) the pilot's `bandcheck.py` passes all 6 boundaries (run 2026-11-11 on `art/tiles.txt` and `disk/`).
 Coasts: deep sea, a 1-px dither drop-off, shallows, a broken foam line, surf, beach, a dithered beach
 edge, land; roads from every factory run to a pier across the beach (the connector the eye follows).
 There is **no parallax:** depth is the gunship's shadow.
 
 **Animation** (frame counts from speed): gunship 32 frames (16 headings x 2 rotor phases; the pilot
-draws 4 and turns the rest, re-lit); enemies 8 headings; boat 8; carrier 4 (east / west wake x 2); cruiser
+draws 4 and turns the rest, re-lit); enemies 8 headings (the jet 16: its 8 headings, then the same 8 with
+the missile tell's flash, `art/tools/jet_tell.py`); boat 8; carrier 4 (east / west wake x 2); cruiser
 2; explosion 6 frames of 4 game frames (0.5 s); puff 4; AA gun 24 (8 aims, 8 firing, 8 tell: about 16
 frames of glow on normal, then 2 of muzzle flash); the rotor alternates every frame (every 8 on deck);
 the water has no frames (the copper cycles the crest colour).
@@ -345,13 +376,16 @@ reticle 16x16, pointer 16x16 x8, title logo 160x146, factory 48x48 (3x3 tiles).
 **Sources (honest list)**
 - 1.0-1.4: our own scripts (`art/tools/*.py`, rendered from simple models at every heading); the
   logos from the user's source pictures (`art/src/*.png`, `make_title_logo.py`, `make_dps_logo.py`).
-- Approved pilot (**landing**): Retro Diffusion (`rd_pro__topdown` with our own approved frames as
+- Approved pilot (**landed**): Retro Diffusion (`rd_pro__topdown` with our own approved frames as
   the reference for the gunship, jet and bomber; `rd_core__topdown`; `rd_animation__vfx` for the
   explosion), each request palette-locked with `input_palette`, then `lock`, `remove_orphans`,
   `despeckle`, an inside outline, RotSprite-style turns and re-lighting, all scripted. It **failed** for
   buildings (4 tries), ships (3), 16-px items, terrain textures and rotations: those are built in code
   (the factories and ships from models, the terrain by rules, a 6x-supersampled model for the gun
   dome). No other games' art as input.
+- The jet's tell flash: drawn in code over the pilot's jet frames (`art/tools/jet_tell.py`): a flare
+  of pens 4 (white) and 6 (yellow) at the nose and wingtips, light and outline rules as the rest. No
+  generated art.
 - **Sign-off:** the user approved the pilot on 2026-11-11.
 
 ## 9. Audio
@@ -392,7 +426,11 @@ right.
   them. Everything else is ours: the effects (`sound.toml`) and the march, fanfare, game-over tune
   from synthesised instruments (`sound/tools/make_samples.py`).
 - **Priorities** (higher wins; important effects short): crash 6; klaxon 5, factory 5; bigboom 4,
-  hit 4; missile 3, start 3; bomb 2, boom 2; cannon 1, flak 1, land 1.
+  hit 4; missile 3, lockon 3, start 3; bomb 2, boom 2; cannon 1, flak 1, land 1.
+- **The jet's lock-on beep** (`lockon`, 0.07 s, a high square-wave beep; **decided by Paul,
+  2026-11-11**) plays when an interceptor's tell starts, by the same rules as every effect: channel
+  3 or 1 by the side of the screen the jet is on (either within 40 px of the middle), at most one effect
+  a side and two a picture (it is asked for just after a hit, before the missile and the minor sounds).
 - **Gap vs playbook:** "menus leave a voice free": 1.4 deliberately gives the title music all four
   channels. A looped effect (the rotor) normally takes a channel from a 4-voice module; here it takes
   the one voice the song leaves silent for 61 s, then steps aside (a deliberate compromise).
@@ -413,8 +451,9 @@ right.
 | ending | ALL THEATRES CLEARED, THE IRON COMBINE IS BROKEN, score and rank, 350 frames. **Gap:** not animated |
 | credits | the title's second page for the music; the release zip's `CREDITS.txt`. No art credits page (all art is ours; the Retro Diffusion pilot's tool is named here) |
 
-**README drift (a doc bug, not a design):** the README's download table still links
-`rotor-raider-1.3.zip` while `agk.toml` and "New in 1.4" say 1.4.
+**README drift (a doc bug, fixed 2026-11-11):** the download table linked `rotor-raider-1.3.zip`
+while `agk.toml` and "New in 1.4" said 1.4; it now links 1.4. (**Decided by Paul, 2026-11-11.** The
+v1.3 tag is not touched.)
 
 ## 11. Tech plan
 
@@ -455,34 +494,39 @@ right.
 - **Order of work (as it happened):** 1.0 (2026-11-04) -> 1.1 momentum, the way home, harder theatres
   (11-04) -> 1.2 AA guns that aim, a styled HUD (11-04) -> the title logo, Songerson's music (11-09) ->
   1.3 (11-10) -> 1.4 (11-11): the AA tell, flak at half speed, the rotor on channel 0, stereo effects,
-  pacing measured per theatre, the cruiser as a set piece, the frame-time fix -> this spec.
-- **Milestones:** playable core done; three complete theatres done; polish in progress (the art
-  pilot, the HUD, the jet-camping fix, all **landing**); release 1.4 version-bumped, a 1.4 release
-  zip and README download links not yet done (see section 10).
+  pacing measured per theatre, the cruiser as a set piece, the frame-time fix -> this spec -> the pilot
+  art and HUD, the jet break-off, the key latch, the tells (hardest AA 12, interceptor missiles).
+- **Milestones:** playable core done; three complete theatres done; polish done (the art pilot, the
+  HUD, the jet-camping fix and the key latch landed; the tells on branch `tells-14`); release 1.4
+  version-bumped, README download links fixed on `tells-14`; the 1.4 release zip not yet built.
 - **Playtests:** Paul's reports are what drive fixes (the carrier duplicate, jets camping, a cut-off
-  mountain in the other game); logged as tuning tickets.
+  mountain in the other game); logged as tuning tickets. **The carrier duplicate-draw report is open,
+  not reproduced in vAmiga** (2026-11-11); no commit owns it.
 
-**Landing branches** (checked 2026-11-11, `git log` on each; update this section
-after the merge):
-- `art-pilot-integration` (5 commits ahead of `main`): the pilot terrain kit (77 tiles, same numbers)
-  and the Frostline palettes (`17d2f26`), the pilot gunship, jet, bomber, boat, carrier, cruiser,
-  explosion, puff and AA guns with their tell frames (`2ec4ddf`), goldens for them (`4e2f74e`), the
-  HUD restyle with recessed wells and a framed minimap (`6402e07`, `54540c8`). The **carrier
-  duplicate-draw bug** Paul reported is **not in any commit on this branch yet**; spec section 8 and 10
-  say "landing" only for what the commits show.
-- `fix-jet-camping`: **no commits yet**; uncommitted work in its worktree (README note, `enemies.c`,
-  `logic.h`, a unit test): while the gunship is on a deck or going down to one, and for 150 frames
-  (`JET_DECK_GRACE`) after take-off, every jet breaks off and flies out, no new jet is called (the timer
-  waits), the cruiser launches none; and within 250 px (`JET_DECK_ZONE`) of the carrier only one jet at
-  a time commits to the gunship. README note: in 85 s on deck, jet-seconds within 150 px went from
-  60 to 0. Open play unchanged. It may bump the version to 1.4.1.
+**Landed** (both merged to `main` on 2026-11-11):
+- `art-pilot-integration` (merge 25cbff5): the pilot terrain kit (77 tiles, same numbers) and the
+  Frostline palettes, the pilot gunship, jet, bomber, boat, carrier, cruiser, explosion, puff and AA
+  guns with their tell frames, goldens for them, the HUD restyle with recessed wells and a framed
+  minimap, and the minimap fix (a busy flag, `s_isHudTyping`, was never cleared, so the minimap had
+  been blank since 1.0). Section 8.
+- `fix-jet-camping` (`b316f75`, merge 8b897e5): jets break off while the gunship is on a deck, going
+  down to one, and for 150 frames after take-off; near the carrier one jet at a time commits to the
+  gunship. In 85 s on deck, jet-seconds within 150 px went from 60 to 0. Open play unchanged.
+- **The key latch** (`d8fe879`, tests `0fcdfbd`): one-shot keys (P, M, Ctrl+L, 9, 0-5) are read once the
+  frame's wait is done and acted on the next picture, so they act the same on every CPU. Before, whether
+  the picture or the next saw a key depended on how fast the CPU got to `skillKeys` (on the A1200 the
+  code layout alone moved the bombing test's jump a picture, which shifted the AA guns' 4-frame turns
+  and their tells). `tests/keys.agk` checks the pictures GODMODE and the jump take effect on
+  (`difficulty=0 at=40`, `jumped=75`) on every profile.
+- **Open:** the **carrier duplicate-draw report** (a second carrier drawn): open, **not reproduced in
+  vAmiga**; it is on no commit. It needs Paul's description and a WinUAE run to reproduce.
 
 **Acceptance criteria** (state as recorded at 2804254; **not re-run for this spec**)
 - [x] `agk unit` passes (58 tests in `tests/unit/test_logic.c`, three files compiled for the host)
 - [x] `agk test` passes on a500, a500-ks31, a500-aros, a1200 (10 scenario files; `f69b004` regenerated the goldens)
 - [x] no dropped frames in the perf scenario, max load under 95%
 - [ ] the pacing checker passes section 5's targets: **no** (threat mean and quiet share miss, by design, README "not tuned"); and the checker (`tools/pace.py`) isn't a build gate
-- [x] tells on every AA round, unit-tested (`testNoShotWithoutATell`); **not** on interceptor missiles
+- [x] tells on every AA round (`testNoShotWithoutATell`, `testAaTellTable`) and every interceptor missile (`testNoJetMissileWithoutATell`, `testJetTellAborts`), none under 12 frames
 - [x] cruiser anti-stall in place, unit-tested (`testCruiserEscalatesAndRewards`)
 - [ ] the 512K master boots: **unverified**; README says 1 MB
 - [ ] a release zip with README, CREDITS.txt and a demo video: the 1.3 release exists (`demo/rotor-raider.mp4`); the 1.4 zip is not built
@@ -496,20 +540,35 @@ disk is writable and keys are held in real time.)
 | **stereo effect panning by ear** | on speakers or headphones in WinUAE or a real Amiga: a flak burst on the left of the screen is heard on the left (Paula 0 and 3 left, 1 and 2 right), one on the right on the right, the middle on either; fly a circle round a gun and hear it move | Paul | **unproven** (vAmiga records mono; `testSfxPanning` checks only the channel choice; measured: 19 left, 13 right, 29 middle in a 44 s fight) |
 | **dog70's strings returning at 61 s** | on a 1 MB-chip machine (WinUAE with 1 MB chip) in the air for 70 s: the rotor loops on channel 0 and the music has no string chords until ~61 s; the rotor fades out over ~1 s at ~59 s; from 61 s all four voices play and the take-off and landing chop is short; no click at the hand-over | Paul | **unproven** (the timing is derived from the module and `mod_voices.py`; nobody has listened across the boundary) |
 | 1 MB-chip music load on real hardware | A500+, A600 or A1200 (or WinUAE): the modules load at boot with 64 KB left; the title shows the credits page; the music plays; on 512K chip, the march and no music in the air | Paul | unproven on real hardware |
-| AA gun tell readable in play | played: the barrels' glow is noticed before the round on a real display, at each skill | Paul playtest | unproven by a person |
+| AA gun tell readable in play (**hardest now 12 frames**) | played: the barrels' glow is noticed before the round on a real display, at each skill; at skill 5 the 12-frame warning is enough to move | Paul playtest in WinUAE | unproven by a person |
+| **interceptor missile tell and lock-on beep** | in WinUAE (KS1.3 and 3.1): on skills 3 and 5 let a jet come at you in the open: its nose and wingtips flash yellow for about a third of a second, a short high beep plays on the jet's side, and only then the missile leaves; fly out of its sight during the flash and no missile comes; the beep is not lost under music or flak | Paul | **unproven** (the logic is unit-tested; vAmiga records the sound mono and only proves a beep plays) |
 | AA guns on sprites 4-5 | on a real display: no grey blobs where two guns share lines; none lost at the fine-scroll edge | Paul | unproven on hardware (vAmiga only) |
 | classic steering momentum | by hand: glide, arc, tail-first reverse feel right with a real stick | Paul | unproven by feel |
 | the cruiser set piece | played to the cruiser (3 min in): the ENEMY bar, the 45 s and 90 s escalations, the klaxon, sinking it | Paul | unit-tested; **not played** (the scripted pacing run rarely reaches it) |
 | theatre load between clears on a real floppy | stopwatch on a real A500 or WinUAE at floppy speed: the CLEARED screen (400 frames) covers the load | Paul | not measured |
-| jets no longer camp the deck (**landing**) | sit on the carrier for 60+ s on skill 3 in WinUAE: no jet circles it; take off: no ambush for 3 s | Paul | pending the merge |
-| the approved new art and HUD (**landing**) | at 1x on a real display: the Frostline snow reads (factories, roads, yards), no foam colour change on the band-switch lines, the framed minimap is legible | Paul after the merge | pending the merge |
+| jets no longer camp the deck (**landed**, 8b897e5) | sit on the carrier for 60+ s on skill 3 in WinUAE: no jet circles it; take off: no ambush for 3 s | Paul | unproven by a person (unit-tested) |
+| the approved new art and HUD (**landed**, 25cbff5) | at 1x on a real display: the Frostline snow reads (factories, roads, yards), no foam colour change on the band-switch lines, the framed minimap is legible and shows you, the carrier, factories and planes | Paul | unproven on a real display |
+| the key latch (**landed**, d8fe879) | in WinUAE on a 68000 and a 68030 or faster: Ctrl+L then 3 and P, M, 0 act on the next picture every time | Paul | unproven outside vAmiga (the four test profiles agree) |
 | 319-colour title and 320-colour boot logo | by eye on a CRT and an LCD | Paul | unproven |
 
-## Open questions for Paul
+## Decisions and open questions
 
-1. The AA tell is 8 frames at the hardest skill, below the playbook's 12. Raise it, or leave the
-   hardest as designed?
-2. Interceptor jets' missiles have no flash tell and fly at 2.75 px/frame; accept, or add a tell?
+**Decided by Paul, 2026-11-11:**
+1. **The AA tell at the hardest skill:** raised from 8 to 12 frames (the playbook's floor). The table is
+   24 / 20 / 16 / 14 / 12 on skills 1-5, normal stays 16, GODMODE equals normal. The hardest stays
+   harder through fire rate, not a shorter warning. (Section 6. Note: guns act every 4th frame, so 14
+   plays as 16.)
+2. **Interceptor missiles:** add a tell: 16 frames on normal, scaled by difficulty like the AA table,
+   a visible flash on the jet (wing and nose, in the pilot art style) and a short lock-on beep within
+   the 1.4 channel policy; the missile's speed is unchanged; no missile without the full tell; the
+   tell is aborted if the jet leaves the screen. (Sections 6, 7, 9.)
+9. **The README's download table** says 1.4, and "New in 1.4" lists the new art, HUD and minimap, the
+   jet break-off, the key fix and these tells. The v1.3 tag is not touched.
+
+**Status, not a decision:**
+10. The carrier duplicate-draw bug: **open, not reproduced in vAmiga.** It is on no commit. (Section 12.)
+
+**Still open:**
 3. Threat mean (0.64-1.35) and nothing-to-dodge (45-65%) miss the playbook by a wide margin. Is this
    open-map design the intent, or should the factories get more to dodge? Add the pacing check as a
    build gate?
@@ -519,12 +578,11 @@ disk is writable and keys are held in real time.)
 6. No hi-score table, no save, no attract loop, no animated ending. Which are wanted before the next
    release?
 7. Does it boot on 512K chip + no expansion? README says 1 MB; the playbook's master is 512K.
-8. Add `docs/STYLE.md` (a copy of the pilot's) after the art lands?
-9. The README's download table says 1.3; the version is 1.4 (and may become 1.4.1 with the jet fix).
-10. The carrier duplicate-draw bug is on no branch's commit list yet: which branch owns it?
+8. Add `docs/STYLE.md` (a copy of the pilot's) now that the art has landed?
 
 ## Version history
 
 | version | date | change |
 |---|---|---|
 | v1.0 | 2026-11-11 | retroactive: the game as it is at `main` 2804254 (v1.4); the approved art, the HUD and the jet-camping fix are noted as landing |
+| v1.1 | 2026-11-11 | decided by Paul: the hardest AA tell 8 -> 12 frames (table 24 / 20 / 16 / 14 / 12); interceptor missiles get a tell (16 frames on normal, scaled the same, a jet flash and a lock-on beep, aborted when the jet leaves the screen); the README download table follows the version. Landed and described as landed: the pilot art, the restyled HUD with a working minimap (merge 25cbff5), the jet break-off near decks (8b897e5), the key latch (d8fe879). The carrier duplicate-draw report: open, not reproduced in vAmiga. Pacing re-measured (section 5) |
