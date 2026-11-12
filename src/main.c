@@ -2027,12 +2027,6 @@ void genericProcess(void) {
 			s_isReady = 1;
 			agkReady();
 		}
-		else if(!s_isScoresRead) {
-			// the hall of fame's file, on the splash's second picture: the floppy work is not part
-			// of the boot (AROS gives the boot 3000 frames to reach "AGK ready")
-			s_isScoresRead = 1;
-			deferredLoad();
-		}
 		return;
 	}
 	if(!s_isScoresRead) { s_isScoresRead = 1; deferredLoad(); }
