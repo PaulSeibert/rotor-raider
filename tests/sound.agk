@@ -15,3 +15,6 @@ wait 10
 mark gun_end
 expect-sound gun gun_end
 expect-serial "sfx cannon"
+# 1.4: in the air the rotor borrows Paula channel 0 (no music there on 512 KB,
+# or dog70's first minute on 1 MB chip, whose voice 0 is silent then)
+expect-serial "rotor on channel 0"
