@@ -530,7 +530,7 @@ def gun_pixel(fire, heading):
 # The guns on hardware sprites 4-7 (two attached pairs: 15 colours, from
 # slots 17-31, which the gunship shares: its 11 colours are 17-27, so the gun
 # uses some of those and sets 28-31). A pen -> an attached sprite's colour.
-GUN_SPR_COLOR = {'1': 1, '2': 8, '3': 9, '5': 10, '6': 11, '4': 12, '7': 13, 'w': 15}
+GUN_SPR_COLOR = {'K': 1, 'r': 8, 's': 9, 'o': 10, 'y': 11, 'w': 12, 'R': 13, 'D': 14, 'W': 15}   # art/gun_spr.txt's letters (art pilot)
 GUN_SPR_EXTRA = ['0xCCC', '0xC22', '0x333', '0xFFF']      # slots 28-31
 
 
@@ -561,34 +561,35 @@ def export_gun_sprites(frames):
 
 
 def main():
-    frames = [render(32, chopper_pixel, h, p) for h in range(16) for p in range(2)]
-    save('chopper', 'The Kestrel gunship, 32x32, heading * 2 + rotor phase', CHOPPER_COLORS, frames)
-    save_bob('shadow', "The gunship's shadow, 32x32, one frame per heading",
-             [render_plain(32, shadow_pixel, h) for h in range(16)])
-    e = [carrier(0), carrier(1)]
-    save_bob('carrier', 'The carrier DPS Mirage, 96x32: east 0/1, west 2/3', e + [flip(f) for f in e])
-    # enemies: 8 headings drawn (the rules steer in 16; the art shows the nearest 8)
-    save_bob('jet', 'An interceptor, 32x32, 8 headings', [render_pens(32, jet_pixel, h) for h in range(0, 16, 2)])
-    save_bob('bomber', 'A bomber, 32x32, 8 headings', [render_pens(32, bomber_pixel, h) for h in range(0, 16, 2)])
-    save_bob('boat', 'A supply boat, 16x16, 8 headings', [render_pens(16, boat_pixel, h) for h in range(0, 16, 2)])
+    """Art pilot (2026): the gunship and its shadow, the carrier, the cruiser, the jet, the bomber,
+    the boat, the explosion, the puff and the AA guns are now pixel art in art/ (chopper.txt,
+    shadow.txt, carrier.txt, cruiser.txt, jet.txt, bomber.txt, boat.txt, boom.txt, puff.txt,
+    gun.txt for the blitter, gun_spr.txt for the sprites), made from the approved pilot frames by
+    ~/art-pilot/rotorraider/integ.py: this no longer overwrites them. It still draws the small
+    ones (missile, flak, pointer, shot, bomb, reticle) and packs everything."""
     save_bob('missile', 'A homing missile, 16x16, 8 headings', [render_pens(16, missile_pixel, h) for h in range(0, 16, 2)])
-    c = cruiser()
-    save_bob('cruiser', 'The Combine cruiser, 96x32: east, west', [c, flip(c)])
     flak = [list(r.ljust(16, '.')) for r in ['.66.....', '6446....', '6446....', '.66.....']]   # a bright tracer
     save_bob('flak', 'A flak or naval shell, 16x4', [flak])
-    # (logo.txt, the title logo, is made by make_title_logo.py: run it first)
     save_bob('pointer', "Home's pointer at the screen's edge, 16x16, 8 headings",
              [render_pens(16, pointer_pixel, h) for h in range(0, 16, 2)])
-    guns = [render_pens(16, gun_pixel(fire, h), h) for fire in (0, 1, 2) for h in range(0, 16, 2)]
-    save_bob('gun', 'An AA gun on its turret, 16x16: 8 aims, the same 8 firing, then 8 winding up to fire '
-             '(the blitter\'s, for a gun the sprites have no room for)', [[[('4' if c == 'w' else c) for c in r] for r in f] for f in guns])
-    export_gun_sprites(guns)
     shot, bomb, booms, puffs, rets = small_bobs()
     save_bob('shot', 'A cannon round (tracer), 16x4', shot)
     save_bob('bomb', 'A falling bomb, 16x8', bomb)
-    save_bob('boom', 'An explosion, 32x32, 6 frames', booms)
-    save_bob('puff', 'A shell hitting the ground, 16x16, 4 frames', puffs)
     save_bob('reticle', 'Where a bomb would land, 16x16, 2 frames (blinks)', rets)
+    export_gun_sprites(read_spr_txt('gun_spr'))
+
+
+def read_spr_txt(name):
+    """frames of a sprite text art file (letters, '.' transparent)"""
+    frames, cur, inframes = [], None, False
+    for line in open(os.path.join(ART, name + '.txt')):
+        line = line.rstrip('\n')
+        if line == 'frame':
+            cur = []
+            frames.append(cur)
+        elif cur is not None and line and not line.startswith('#'):
+            cur.append(list(line))
+    return frames
 
 
 if __name__ == '__main__':

@@ -81,6 +81,16 @@
 static const UWORD s_pHudMsgGrad[7] = {0x9DF, 0xBEF, 0xFFF, 0xFFC, 0xFE8, 0xFC5, 0xF93};
 static const UWORD s_pHudLabelGrad[7] = {0xFF8, 0xFE5, 0xFD3, 0xFB2, 0xF92, 0xE62, 0xC42};
 static const UWORD s_pHudValueGrad[7] = {0xFFF, 0xFFF, 0xEEF, 0xDEF, 0xCDF, 0xBCE, 0xABD};
+// (art pilot) the HUD panel's colour by line (0: no change), the bars' fills by row,
+// the bevels: pen 1 stays PF1's black (the dark edge, and the minimap's destroyed
+// factories), pen 2 the wells' deep blue and the minimap's sea, pen 3 the light edge
+// and the minimap's land (as in the approved mock-up)
+static const UWORD s_pHudPanel[40] = {0x8BD, 0x469, 0x247, 0x236, 0, 0, 0, 0, 0, 0, 0, 0, 0x225, 0, 0, 0, 0, 0,
+	0, 0, 0, 0, 0x224, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x113, 0, 0, 0, 0, 0, 0x112, 0};
+static const UWORD s_pHudBarRed[5] = {0xF64, 0xE42, 0xD32, 0xB22, 0x912};
+static const UWORD s_pHudBarGold[5] = {0xFF8, 0xFE5, 0xFC2, 0xFA2, 0xE72};
+#define HUD_COL_WELL 0x024
+#define HUD_COL_LIGHT 0x58A
 
 #define THEATRE_BYTES (THEATRE_HEADER + MAP_W_MAX * MAP_H_MAX + 6 * 64 + 18 * BANDS_MAX)
 
@@ -372,7 +382,7 @@ __attribute__((noinline)) static void copperBuild(UBYTE ubBfr) {
 	// sprites: the gunship on 0-3, the turrets' guns on 4-7
 	for(UBYTE s = 0; s < ART_CHOPPER_PARTS; ++s) cwPtr(&sW, R_SPRPT(s), (ULONG)s_pChopShown[ubBfr][s]->Planes[0]);
 	for(UBYTE s = 0; s < 4; ++s) cwPtr(&sW, R_SPRPT(GUN_CHANNEL + s), (ULONG)s_pGunList[ubBfr][s]);
-	for(UBYTE i = 4; i < 7; ++i) cwMove(&sW, R_COLOR(i), s_pColors[i]);   // (the HUD changed them)
+	for(UBYTE i = 1; i < 8; ++i) cwMove(&sW, R_COLOR(i), s_pColors[i]);   // (the HUD changed them)
 	cwPtr(&sW, R_COP2LC, (ULONG)s_pHudCop[ubBfr]);   // where the HUD's block is
 	cwMove(&sW, R_BPLCON0, BPLCON0_DPF6);
 	cwMove(&sW, R_BPLCON1, scrollDelayBits(g->camX));
@@ -477,9 +487,9 @@ __attribute__((noinline)) static void copperBuild(UBYTE ubBfr) {
 // The HUD's part of the copper list, the same every picture: written once per
 // buffer, the per-picture list jumps to it (COP2LC, set at its top). It
 // starts after line 255 (the play area ends at line 216 + the view's top).
-#define HUD_COP_CMDS 100
+#define HUD_COP_CMDS 140
 
-static void hudCopperCreate(void) {
+__attribute__((cold)) static void hudCopperCreate(void) {   // (art pilot: once, built for size)
 	for(UBYTE b = 0; b < 2; ++b) {
 		s_pHudCop[b] = memAllocChip(HUD_COP_CMDS * 4);
 		tCw sW = {.p = s_pHudCop[b], .uwTop = s_pView->ubPosY, .isPast255 = 1};
@@ -488,28 +498,37 @@ static void hudCopperCreate(void) {
 		cwMove(&sW, R_BPL1MOD, HUD_ROW_BYTES - FETCH_BYTES);
 		cwMove(&sW, R_BPL2MOD, HUD_ROW_BYTES - FETCH_BYTES);
 		for(UBYTE p = 0; p < 3; ++p) cwPtr(&sW, R_BPLPT(p), (ULONG)s_pHud[b]->Planes[p]);
-		cwWait(&sW, PLAY_H, 0);
-		cwMove(&sW, R_COLOR(0), 0x58A);           // a lit rule along its top
-		cwWait(&sW, PLAY_H + 1, 0);
-		cwMove(&sW, R_COLOR(0), 0x235);
-		// the text's colours, a row at a time: the message (pen 6) from ice
-		// to gold, the labels (pen 5) hot metal, the numbers (pen 4) white to steel
-		for(UBYTE l = 0; l < HUD_LINES; ++l) {
-			UWORD uwY = (UWORD)(PLAY_H + HUD_TEXT_Y + 10 * l);
-			for(UBYTE r = 0; r < 7; ++r) {
-				cwWait(&sW, (UWORD)(uwY + r), 0);
-				if(!l) {
-					if(!r) cwMove(&sW, R_COLOR(0), HUD_COLOR);
-					cwMove(&sW, R_COLOR(HUD_PEN_MSG), s_pHudMsgGrad[r]);
-				}
+		// (art pilot) line by line: the panel (pen 0) from a lit rule down a steel
+		// gradient; the bevels (pens 1-3: dark, well / minimap land, light) once;
+		// the text's colours a row at a time as before - the message (pen 6) ice to
+		// gold, the labels (pen 5) hot metal, the numbers (pen 4) white to steel -
+		// and the bars' fills (pen 7 red, pen 6 gold) a row at a time
+		for(UBYTE y = 0; y < HUD_H; ++y) {
+			UWORD pReg[6], pVal[6];
+			UBYTE n = 0;
+			if(s_pHudPanel[y]) { pReg[n] = 0; pVal[n++] = s_pHudPanel[y]; }
+			if(!y) {
+				pReg[n] = 2; pVal[n++] = HUD_COL_WELL;
+				pReg[n] = 3; pVal[n++] = HUD_COL_LIGHT;
+			}
+			WORD t = (WORD)(y - HUD_TEXT_Y);
+			UBYTE l = (UBYTE)(t / 10), r = (UBYTE)(t % 10);
+			if(t >= 0 && l < HUD_LINES && r < 7) {
+				if(!l) { pReg[n] = HUD_PEN_MSG; pVal[n++] = s_pHudMsgGrad[r]; }
 				else {
-					cwMove(&sW, R_COLOR(HUD_PEN_LABEL), s_pHudLabelGrad[r]);
-					cwMove(&sW, R_COLOR(HUD_PEN_VALUE), s_pHudValueGrad[r]);
+					pReg[n] = HUD_PEN_LABEL; pVal[n++] = s_pHudLabelGrad[r];
+					pReg[n] = HUD_PEN_VALUE; pVal[n++] = s_pHudValueGrad[r];
 				}
 			}
-			if(!l) {
-				cwWait(&sW, (UWORD)(uwY + 7), 0);
-				cwMove(&sW, R_COLOR(HUD_PEN_MSG), s_pColors[HUD_PEN_MSG]);   // yellow again: the carrier's bar
+			if(t >= 0 && !l && r == 7) { pReg[n] = HUD_PEN_MSG; pVal[n++] = s_pColors[HUD_PEN_MSG]; }   // yellow again: the minimap's carrier
+			if(y >= 23 && y < 28) { pReg[n] = 7; pVal[n++] = s_pHudBarRed[y - 23]; }            // DAMAGE
+			if(y >= 33 && y < 38) {                                                             // CARRIER, YARD
+				pReg[n] = 6; pVal[n++] = s_pHudBarGold[y - 33];
+				pReg[n] = 7; pVal[n++] = s_pHudBarRed[y - 33];
+			}
+			if(n) {
+				cwWait(&sW, (UWORD)(PLAY_H + y), 0);
+				for(UBYTE i = 0; i < n; ++i) cwMove(&sW, R_COLOR(pReg[i]), pVal[i]);
 			}
 		}
 		cwEnd(&sW);
@@ -1218,6 +1237,52 @@ static char s_pHudTarget[2][HUD_LINES][HUD_LEN + 1];   // what the lines are to 
 static const char *s_pHudLabels[HUD_LINES] = {"", "SCORE         HI          HELI",
 	"DAMAGE         BOMBS          SK", "CARRIER        YARD         FACT"};
 
+// (art pilot) a pixel of the HUD in a pen (x, y: on screen; the bitmap's first
+// 16 px are the early fetch word), and a recessed frame round a box: dark top and
+// left, light bottom and right
+__attribute__((noinline, cold)) static void hudPen(UBYTE b, UWORD x, UWORD y, UBYTE ubPen) {
+	UBYTE *p = s_pHud[b]->Planes[0] + y * HUD_ROW_BYTES + ((x + 16) >> 3);
+	UBYTE m = (UBYTE)(0x80 >> ((x + 16) & 7));
+	for(UBYTE i = 0; i < 3; ++i, p += HUD_PLANE_BYTES) *p = (UBYTE)((ubPen >> i) & 1 ? (*p | m) : (*p & ~m));
+}
+
+__attribute__((noinline, cold)) static void hudWell(UBYTE b, UWORD x, UWORD y, UWORD w, UWORD h) {
+	for(UWORD i = x - 1; i <= x + w; ++i) { hudPen(b, i, y - 1, 1); hudPen(b, i, y + h, 3); }
+	for(UWORD j = y - 1; j <= y + h; ++j) { hudPen(b, x - 1, j, 1); hudPen(b, x + w, j, 3); }
+}
+
+// The wells' and the minimap frame's left edges (screen x: 7 mod 8, so bit 0 of a
+// byte) share 8 px text cells with the home arrow (CARRIER), ENEMY's Y (YARD) and
+// the factories' digit / a long message (the minimap): a character drawn there
+// clears its whole cell, so those edges are put back after lines 0 and 3 are drawn
+#define WELL_DMG_X 56                 // hudBar: byte column 7, row 23
+#define WELL_DMG_Y 23
+#define WELL_SHIP_X 64                // column 8, row 33
+#define WELL_YARD_X 160               // column 20, row 33
+#define WELL_LOW_Y 33
+#define HUD_EDGE_BYTE(x) (((x) + 16) >> 3)
+
+static void hudEdge(UBYTE *p, UBYTE ubRows, UBYTE ubMask) {   // pen 1 down a column
+	for(; ubRows; --ubRows, p += HUD_ROW_BYTES) {
+		p[0] |= ubMask;
+		p[HUD_PLANE_BYTES] &= (UBYTE)~ubMask;
+		p[2 * HUD_PLANE_BYTES] &= (UBYTE)~ubMask;
+	}
+}
+
+static void hudEdges(UBYTE b, UBYTE ubLine) {
+	UBYTE *p = s_pHud[b]->Planes[0];
+	if(!ubLine) {   // the minimap frame's top-left: rows 3-9
+		hudEdge(p + s_pMiniRowOffs[MINI_Y - 1] + HUD_EDGE_BYTE(MINI_X - 17), 7, 0x01);
+		hudEdge(p + s_pMiniRowOffs[MINI_Y - 1] + HUD_EDGE_BYTE(MINI_X - 16), 1, 0xFF);
+	}
+	else {          // line 3: the CARRIER and YARD wells' left edges, the minimap's bottom-left
+		hudEdge(p + s_pMiniRowOffs[WELL_LOW_Y - 1] + HUD_EDGE_BYTE(WELL_SHIP_X - 1), 7, 0x01);
+		hudEdge(p + s_pMiniRowOffs[WELL_LOW_Y - 1] + HUD_EDGE_BYTE(WELL_YARD_X - 1), 7, 0x01);
+		hudEdge(p + s_pMiniRowOffs[WELL_LOW_Y - 1] + HUD_EDGE_BYTE(MINI_X - 17), MINI_Y + 32 - (WELL_LOW_Y - 2), 0x01);
+	}
+}
+
 static void hudInit(void) {
 	for(UBYTE b = 0; b < 2; ++b) {
 		for(UBYTE l = 0; l < HUD_LINES; ++l) {
@@ -1228,11 +1293,16 @@ static void hudInit(void) {
 			for(UBYTE c = 0; c < HUD_LEN; ++c) s_pHudStage[b][l][c] = ' ';
 			s_pHudStage[b][l][HUD_LEN] = 0;
 		}
+		// (art pilot) the frames after the text: its cells clear what's under them
+		hudWell(b, WELL_DMG_X, WELL_DMG_Y, 48, 5);
+		hudWell(b, WELL_SHIP_X, WELL_LOW_Y, 48, 5);
+		hudWell(b, WELL_YARD_X, WELL_LOW_Y, 48, 5);
+		hudWell(b, MINI_X - 16, MINI_Y, 40, 32);   // (its right edge, x 40 of the map, is in miniLand too)
 	}
 }
 
-// The minimap's land, pen 2 (plane 1), from the map: a pixel is land if most
-// of its 4 x 4 tiles are
+// The minimap's land (pen 3) and sea (pen 2), from the map: a pixel is land if
+// most of its 4 x 4 tiles are
 static void miniLand(const tMap *pMap) {
 	for(UBYTE p = 0; p < 3; ++p)
 		for(UBYTE y = 0; y < 32; ++y)
@@ -1249,8 +1319,14 @@ static void miniLand(const tMap *pMap) {
 					}
 				}
 			}
-			if(n >= 6) s_pMini[1][my][mx >> 3] |= (UBYTE)(0x80 >> (mx & 7));
+			// (art pilot) the sea in the wells' deep blue (pen 2), the land in the
+			// light edge's colour (pen 3), as in the mock-up; off the map, the panel
+			UBYTE ubBit = (UBYTE)(0x80 >> (mx & 7));
+			if(mx * 4 < pMap->uwW && my * 4 < pMap->uwH) s_pMini[1][my][mx >> 3] |= ubBit;
+			if(n >= 6) s_pMini[0][my][mx >> 3] |= ubBit;
 		}
+		s_pMini[0][my][5] |= 0x80;          // (art pilot) the frame's light right edge, pen 3
+		s_pMini[1][my][5] |= 0x80;
 	}
 	UBYTE *pDst = s_pMiniChip;
 	for(UBYTE y = 0; y < 32; ++y)
@@ -1285,12 +1361,43 @@ static inline void miniDot(UBYTE *pBase, WORD wX, WORD wY, UBYTE ubPen) {
 }
 
 
+// The factories' dots: which structs, and where, found once per theatre (the
+// loop over every struct was most of the minimap's cost: up to 6% of an A500
+// frame, measured, in the picture that draws it)
+#define MINI_FACT_MAX 16
+static UBYTE s_ubMiniFacts;
+static UBYTE s_pMiniFact[MINI_FACT_MAX];
+static UWORD s_pMiniFactOffs[MINI_FACT_MAX];
+static UBYTE s_pMiniFactBit[MINI_FACT_MAX];
+
+static void miniFactsInit(void) {
+	const tGame *g = &s_sGame;
+	s_ubMiniFacts = 0;
+	for(UBYTE i = 0; i < g->ubStructs && s_ubMiniFacts < MINI_FACT_MAX; ++i) {
+		const tStruct *s = &g->pStructs[i];
+		if(s->type != OBJ_FACTORY) continue;
+		UWORD x = (UWORD)(s->tx * TILE + 24) >> 6, y = (UWORD)(s->ty * TILE + 24) >> 6;
+		if(x >= 40 || y >= 32) continue;
+		s_pMiniFact[s_ubMiniFacts] = i;
+		s_pMiniFactOffs[s_ubMiniFacts] = (UWORD)((y + MINI_Y) * HUD_ROW_BYTES + ((MINI_X + x) >> 3));
+		s_pMiniFactBit[s_ubMiniFacts++] = (UBYTE)(0x80 >> (x & 7));
+	}
+}
+
 __attribute__((noinline)) static void miniUpdate(UBYTE ubBfr) {
 	const tGame *g = &s_sGame;
 	UBYTE *pBase = s_pHud[ubBfr]->Planes[0];   // (the land was blitted in: miniQueue)
-	for(UBYTE i = 0; i < g->ubStructs; ++i) {
-		const tStruct *s = &g->pStructs[i];
-		if(s->type == OBJ_FACTORY) miniDot(pBase, (WORD)(s->tx * TILE + 24), (WORD)(s->ty * TILE + 24), s->hp ? 7 : 3);
+	for(UBYTE i = 0; i < s_ubMiniFacts; ++i) {   // standing: pen 7; destroyed: pen 1, dark on the land
+		UBYTE *p = pBase + s_pMiniFactOffs[i], ubBit = s_pMiniFactBit[i];
+		p[0] |= ubBit;
+		if(g->pStructs[s_pMiniFact[i]].hp) {
+			p[HUD_PLANE_BYTES] |= ubBit;
+			p[2 * HUD_PLANE_BYTES] |= ubBit;
+		}
+		else {
+			p[HUD_PLANE_BYTES] &= (UBYTE)~ubBit;
+			p[2 * HUD_PLANE_BYTES] &= (UBYTE)~ubBit;
+		}
 	}
 	for(UBYTE i = 0; i < AIR_MAX; ++i)
 		if(g->pAir[i].active) miniDot(pBase, g->pAir[i].x, g->pAir[i].y, 5);
@@ -1341,6 +1448,7 @@ __attribute__((noinline)) static void hudUpdate(UBYTE ubBfr) {
 	static UBYTE pGod[2] = {0, 0}, pCruiserLabel[2] = {0, 0};
 	static UWORD pLineKey[2][HUD_LINES] = {{0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF}, {0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF}};
 	const tGame *g = &s_sGame;
+	s_isHudTyping = 0;   // (this picture's: never cleared before, so the minimap was drawn once at most)
 	// each line is laid out again only when what it shows changes
 	UWORD pKeys[HUD_LINES] = {
 		(UWORD)(g->msg | g->theatre << 4 | (g->state == GS_LOST) << 6 | g->lives << 8 | (g->state == GS_PLAY) << 12 |
@@ -1383,6 +1491,7 @@ __attribute__((noinline)) static void hudUpdate(UBYTE ubBfr) {
 				for(UBYTE i = 0; s_pHudLabels[l][i]; ++i) szLabel[i] = s_pHudLabels[l][i];
 				if(g->cruiser.active) { szLabel[15] = 'E'; szLabel[16] = 'N'; szLabel[17] = 'E'; szLabel[18] = 'M'; szLabel[19] = 'Y'; }
 				agkTextSet(&s_pHudLabel[ubBfr][l], szLabel);
+				hudEdges(ubBfr, 3);   // (ENEMY's Y: the YARD well's left edge)
 			}
 		}
 		if(l == 2 && (g->difficulty == 0) != pGod[ubBfr]) {   // the labels are drawn at the start: only SK/GO changes
@@ -1403,6 +1512,7 @@ __attribute__((noinline)) static void hudUpdate(UBYTE ubBfr) {
 			if(textType(&s_pHudLine[ubBfr][k], s_pHudStage[ubBfr][k], s_pHudTarget[ubBfr][k], &ubBudget)) {
 				pPending[ubBfr] &= (UBYTE)~(1 << k);
 			}
+			if(!k || k == 3) hudEdges(ubBfr, k);   // (the frames' edges in its cells)
 		}
 	}
 	if(g->chop.damage != pDmg[ubBfr]) {
@@ -1414,7 +1524,7 @@ __attribute__((noinline)) static void hudUpdate(UBYTE ubBfr) {
 		hudBar(ubBfr, 8, 33, g->carrier.hp, CARRIER_HP, 6);
 	}
 	// the shipyard's progress; while the cruiser sails, its strength in red
-	// (blinking once it's escalating); sunk, grey
+	// (blinking once it's escalating); sunk, full in pen 3 (the HUD's pale steel)
 	const tCruiser *k = &g->cruiser;
 	UBYTE ubYard = k->active ? (UBYTE)mulDiv(k->hp, 48, CRUISER_HP) : k->sunk ? 48 : (UBYTE)mulDiv(g->uwBuild, 48, logicCruiserBuild(g));
 	UBYTE ubPen = k->active ? (k->ubLevel && (g->frame & 16) ? 6 : 7) : k->sunk ? 3 : 5;
@@ -1537,6 +1647,7 @@ void genericCreate(void) {
 	s_sGame.camY = s_sGame.titleY0;   // already there: nothing to scroll in
 	s_sGame.msg = MSG_NONE;
 	miniLand(&s_sGame.map);
+	miniFactsInit();
 	scrollReset(&s_sGame.map, s_sGame.camX, s_sGame.camY);
 
 	duskUpdate();
@@ -1592,6 +1703,7 @@ static void theatreLoad(UBYTE ubTheatre) {
 	s_sGame.map = s_sTheatre.map;
 	logicLoadTheatre(&s_sGame, &s_sTheatre);
 	miniLand(&s_sGame.map);
+	miniFactsInit();
 	scrollReset(&s_sGame.map, s_sGame.camX, s_sGame.camY);
 	agkState("theatre loaded", ubTheatre);
 	agkEnd();
