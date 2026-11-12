@@ -161,7 +161,7 @@ Theatre generation is a seed plus rules; the structures are placed by rules, not
 
 ## 5. Pacing
 
-Measured at v1.4 on normal, A500, with `tools/pacing.agk` (all three theatres flown the same
+Measured at v1.4 (re-measured 2026-11-11 on `tells-14`, after the jets' missile tell; the first run was clean, 241 s) on normal, A500, with `tools/pacing.agk` (all three theatres flown the same
 scripted way in GODMODE: per factory, 12 s weaving and shooting round it, its bombs, 6 s flying off;
 about 2.5 minutes a theatre) and `tools/pace.py`, which reads what the game prints every 16 frames:
 planes and enemy shots (flak, missiles) on screen, and shots fired at the gunship. Threat = planes +
@@ -169,17 +169,17 @@ shots on screen (`logicThreat`; the cruiser's shells at the carrier don't count)
 
 | theatre | threat mean | p90 / max | nothing to dodge | shots on screen mean / p90 | shots fired a minute | rest beats (3 s+ quiet) |
 |---|---|---|---|---|---|---|
-| Coral Reach | 0.64 | 2 / 4 | 65% | 0.56 / 2 | 30 | 12 in 2.3 min |
-| Ember Flats | 1.02 | 3 / 6 | 48% | 0.92 / 3 | 46 | 10 in 2.4 min |
-| Frostline | 1.35 | 4 / 8 | 45% | 1.21 / 4 | 67 | 9 in 2.6 min |
+| Coral Reach | 0.62 | 2 / 3 | 63% | 0.56 / 2 | 29 | 9 in 2.3 min |
+| Ember Flats | 0.96 | 3 / 5 | 51% | 0.82 / 3 | 44 | 8 in 2.4 min |
+| Frostline | 1.33 | 3 / 6 | 42% | 1.16 / 3 | 66 | 8 in 2.6 min |
 | *playbook target* | *2.5-3, +50% a level* | *6 / 10-12* | *8-12%* | *0.7-1.5 / 2.5-5* | *30-100* | *a 4-8 s rest every 60-80 s* |
 
 **Gap vs playbook** (the README says the same and says "not tuned"):
-- **Threat mean is 0.64-1.35 against 2.5-3,** and **nothing-to-dodge is 45-65% against 8-12%.**
+- **Threat mean is 0.62-1.33 against 2.5-3,** and **nothing-to-dodge is 42-63% against 8-12%.**
   This is an open map where the player picks the fight; the flights between targets are quiet by
-  design. The shots on screen (0.56-1.21 mean) and fired a minute (30-67) are inside the playbook's
+  design. The shots on screen (0.56-1.16 mean) and fired a minute (29-66) are inside the playbook's
   bands. Not tuned.
-- **The step between theatres:** +59% and +32% threat, +53% and +46% shots fired (30 / 46 / 67 a
+- **The step between theatres:** +55% and +39% threat, +52% and +50% shots fired (29 / 44 / 66 a
   minute), against +50% a level. Before 1.4 it was +23% and +21%.
 - **The scripted run is quicker than a player:** it rarely reaches the two 2-minute alert steps or
   the cruiser (built after 2-3 minutes), which add to these numbers later. Not measured: a human
@@ -570,7 +570,7 @@ disk is writable and keys are held in real time.)
 10. The carrier duplicate-draw bug: **open, not reproduced in vAmiga.** It is on no commit. (Section 12.)
 
 **Still open:**
-3. Threat mean (0.64-1.35) and nothing-to-dodge (45-65%) miss the playbook by a wide margin. Is this
+3. Threat mean (0.62-1.33) and nothing-to-dodge (42-63%) miss the playbook by a wide margin. Is this
    open-map design the intent, or should the factories get more to dodge? Add the pacing check as a
    build gate?
 4. The pacing numbers come from a scripted GODMODE run that rarely reaches the cruiser or the
@@ -586,4 +586,4 @@ disk is writable and keys are held in real time.)
 | version | date | change |
 |---|---|---|
 | v1.0 | 2026-11-11 | retroactive: the game as it is at `main` 2804254 (v1.4); the approved art, the HUD and the jet-camping fix are noted as landing |
-| v1.1 | 2026-11-11 | decided by Paul: the hardest AA tell 8 -> 12 frames (table as it plays 24 / 20 / 16 / 16 / 12: Paul asked for 14 on skill 4, quantised to the guns' 4-frame cadence); interceptor missiles get a tell (16 frames on normal, scaled the same, a jet flash and a lock-on beep, aborted when the jet leaves the screen); the README download table follows the version. Landed and described as landed: the pilot art, the restyled HUD with a working minimap (merge 25cbff5), the jet break-off near decks (8b897e5), the key latch (d8fe879). The carrier duplicate-draw report: open, not reproduced in vAmiga. Pacing re-measured (section 5) |
+| v1.1 | 2026-11-11 | decided by Paul: the hardest AA tell 8 -> 12 frames (table as it plays 24 / 20 / 16 / 16 / 12: Paul asked for 14 on skill 4, quantised to the guns' 4-frame cadence); interceptor missiles get a tell (16 frames on normal, scaled the same, a jet flash and a lock-on beep, aborted when the jet leaves the screen); the README download table follows the version. Landed and described as landed: the pilot art, the restyled HUD with a working minimap (merge 25cbff5), the jet break-off near decks (8b897e5), the key latch (d8fe879). The carrier duplicate-draw report: open, not reproduced in vAmiga. Pacing re-measured on the jet-tell build: threat mean 0.62 / 0.96 / 1.33 (was 0.64 / 1.02 / 1.35), shots fired a minute 29 / 44 / 66 (was 30 / 46 / 67), rest beats 9 / 8 / 8 (was 12 / 10 / 9) |
