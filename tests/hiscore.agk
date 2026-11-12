@@ -4,7 +4,7 @@
 # (Ctrl+L, E). The initials: P (15 steps up, held), R (2 more), S (1 more),
 # fire after each. The table shows the new entry and it goes to the floppy;
 # Ctrl+L, H reads the file back.
-wait-serial "AGK t0"
+wait-serial "AGK t0" 3000   # (the floppy loads run after the splash: seconds)
 # a fresh disk: no file, the defaults (read during the splash)
 expect-serial "AGK scores default\nAGK scores names=DPS/PRS/KES/MIR/ACE\nAGK top=10000 last=500"
 wait 10

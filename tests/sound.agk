@@ -1,5 +1,5 @@
 # The title theme plays; in play the rotor chops, the gun cracks, a bomb whistles.
-wait-serial "AGK t0"
+wait-serial "AGK t0" 3000   # (the floppy loads run after the splash: seconds)
 mark title
 wait 50
 mark title_end

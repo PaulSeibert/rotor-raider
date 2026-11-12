@@ -4,7 +4,7 @@
 wait 60
 screenshot logo
 expect-color logo 120 22 0xFA2
-wait-serial "AGK t0"
+wait-serial "AGK t0" 3000   # (the floppy loads run after the splash: seconds)
 wait 60
 screenshot title
 expect-serial "state=0"

@@ -1,7 +1,7 @@
 # Finding the carrier: flying east away from it, the carrier drops off screen
 # and a yellow pointer at the play area's left edge points back at it; the
 # HUD's compass arrow by CARRIER points west.
-wait-serial "AGK t0"
+wait-serial "AGK t0" 3000   # (the floppy loads run after the splash: seconds)
 wait 10
 press fire 2
 wait-serial "theatre loaded=0"

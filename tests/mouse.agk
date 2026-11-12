@@ -1,6 +1,6 @@
 # Moving the mouse (port 1) must not move the gunship: the game reads only the
 # joystick in port 2 (ACE JOY1). On deck it stays put, landed, facing east.
-wait-serial "AGK t0"
+wait-serial "AGK t0" 3000   # (the floppy loads run after the splash: seconds)
 wait 10
 press fire 2
 wait-serial "theatre loaded=0"

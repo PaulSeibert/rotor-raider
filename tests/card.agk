@@ -3,7 +3,7 @@
 # factories, the carrier and an arrow at the gunship, the route across the three
 # theatres, a legend and the brief. Fire held from the title does not skip it; a
 # fresh press does, and the play starts.
-wait-serial "AGK t0"
+wait-serial "AGK t0" 3000   # (the floppy loads run after the splash: seconds)
 wait 10
 press fire 2
 wait-serial "theatre loaded=0"

@@ -1,6 +1,6 @@
 # GODMODE by a factory and its AA turrets for half a minute: hit after hit,
 # the gunship flies on, damage 0, 4 lives.
-wait-serial "AGK t0"
+wait-serial "AGK t0" 3000   # (the floppy loads run after the splash: seconds)
 wait 10
 press fire 2
 wait-serial "theatre loaded=0"

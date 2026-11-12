@@ -4,7 +4,7 @@
 # Classic steering: left/right turn (a step every 4 frames), up thrusts.
 # Each leg is measured over land and coast (Coral Reach's middle island): the
 # open-sea tiles are sparse and repeat every 16 px, too little to track.
-wait-serial "AGK t0"
+wait-serial "AGK t0" 3000   # (the floppy loads run after the splash: seconds)
 wait 10
 press fire 2
 wait-serial "theatre loaded=0"

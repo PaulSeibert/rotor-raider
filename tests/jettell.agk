@@ -3,7 +3,7 @@
 # (the whole tell, on every difficulty, the abort) are in tests/unit; this is the beep and the
 # game printing both, on every profile. (No AA missile before the alert reaches 3, so the first
 # "missile launched" is a jet's.)
-wait-serial "AGK t0"
+wait-serial "AGK t0" 3000   # (the floppy loads run after the splash: seconds)
 wait 10
 press fire 2
 wait-serial "theatre loaded=0"
@@ -23,10 +23,10 @@ key 0x09
 wait-serial "jet tell" 4000
 wait 6
 screenshot flash
-# the flare's white cores: the nose, and both wingtips (the jet is flying north here)
-expect-color flash 142 175 0xFEC
-expect-color flash 129 195 0xFEC
-expect-color flash 156 195 0xFEC
+# the flare's white cores: the nose, and both wingtips (the jet flies north-east here: it is the shifted card start that changed the pose)
+expect-color flash 152 179 0xFEC
+expect-color flash 128 184 0xFEC
+expect-color flash 147 203 0xFEC
 expect-serial "sfx lockon"
 wait 40
 expect-serial "missile launched"

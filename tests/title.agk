@@ -1,6 +1,6 @@
 # The title: right picks ARCADE steering, left CLASSIC; fire starts the game
 # in theatre 1 on the carrier's deck.
-wait-serial "AGK t0"
+wait-serial "AGK t0" 3000
 wait 20
 press right 2
 wait 40

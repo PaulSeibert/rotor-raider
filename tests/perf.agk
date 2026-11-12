@@ -3,7 +3,7 @@
 # worst game frame (~87%) is a bomb landing on a factory: the blast, the
 # factory's tiles, the fireball and new flak in one picture; the switch from
 # the title to the game reaches ~93% for a picture or two. None is dropped.
-wait-serial "AGK t0"
+wait-serial "AGK t0" 3000   # (the floppy loads run after the splash: seconds)
 wait 10
 press fire 2
 wait-serial "theatre loaded=0"

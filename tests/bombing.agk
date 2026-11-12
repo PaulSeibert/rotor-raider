@@ -1,6 +1,6 @@
 # GODMODE (Ctrl+L, 0), then the test jump (Ctrl+L, 9) by a factory: three bombs
 # (the second button) destroy it - rubble, a big explosion, 1000 points.
-wait-serial "AGK t0"
+wait-serial "AGK t0" 3000   # (the floppy loads run after the splash: seconds)
 wait 10
 press fire 2
 wait-serial "theatre loaded=0"
