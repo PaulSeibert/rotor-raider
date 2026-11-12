@@ -1,0 +1,189 @@
+# The attract demo's flight (1.5): Coral Reach from the demo's fixed start (the theatre
+# loaded fresh, classic steering, difficulty 3, seed 0xACE1, frame 256): take off from the
+# carrier, fly to the nearest factory, drop its bombs, hang there and watch it burn.
+# Counted in frames. NOT run by `agk test` (it needs that fixed state): converted by
+#   python3 ~/amiga-game-kit/techniques/attract/tools/scen2demo.py tools/demoflight.agk > src/demodata.c
+# It was recorded by tools/demopilot.c (an autopilot flying the real rules on the host:
+# `cc -I src src/{logic,enemies,theatre,hiscore,missionmap,attract,demodata}.c tools/demopilot.c`).
+# A recording belongs to the build it was made on: tests/unit proves the replay (the factory
+# falls, the gunship survives, twice the same); when the rules change, record again.
+press left+up 21
+press up 45
+press left+up 1
+press up 172
+press down 1
+press up 2
+press down 1
+press up 2
+press down 1
+press up 1
+press down 1
+press up 2
+press down 1
+press up 2
+press down 1
+press up 2
+wait 6
+press left 1
+wait 29
+press up 1
+wait 3
+press up 1
+wait 3
+press up 1
+wait 3
+press up 1
+wait 3
+press up 1
+wait 3
+press up 1
+wait 3
+press up 1
+wait 3
+press up 1
+wait 3
+press up 1
+wait 3
+press up 1
+wait 3
+press up 1
+wait 3
+press up 1
+wait 3
+press up 1
+wait 3
+press up 1
+wait 3
+press up 1
+wait 3
+press up 1
+wait 3
+press up 1
+wait 2
+press down 1
+press up 1
+press left+down 1
+press right+down 1
+press up 1
+press right+down 1
+press up 2
+press left+down 1
+press right 4
+press up 1
+press left+down 1
+press right 4
+press left 2
+wait 2
+press left 1
+press right 1
+press right+up 1
+press right 2
+press left 4
+press right 1
+press right+up 1
+press right 2
+press left 4
+press right 1
+press right+up 1
+press right 2
+press left 4
+press right 1
+press right+up 1
+press right 2
+press left 4
+press right 1
+press right+up 1
+press right 2
+press left 4
+press right 1
+press right+up 1
+press right 2
+press left 4
+press right 1
+press right+up 1
+press right 2
+press left 4
+press right 1
+press right+up 1
+press right 2
+press left 4
+press right 1
+press right+up 1
+press right 2
+press left 4
+press right 1
+press right+up 1
+press right 2
+press left 4
+wait 1
+press up 1
+press right 1
+press left 4
+wait 2
+press up 1
+wait 7
+press up 1
+wait 7
+press up 1
+wait 7
+press up 1
+wait 7
+press up 1
+wait 7
+press up 1
+wait 7
+press up 1
+wait 7
+press up 1
+wait 7
+press up 1
+wait 7
+press up 1
+wait 7
+press up 1
+wait 7
+press up 1
+wait 7
+press up 1
+press fire2 1
+wait 6
+press up 1
+wait 7
+press up 1
+press down 2
+press up 1
+press down 3
+press up 1
+press down 3
+press up 1
+press down 2
+press up 1
+press down 1
+press down+fire2 1
+press down 1
+press up 1
+press down 2
+press up 1
+press down 3
+press up 1
+press down 2
+press up 1
+press down 2
+press up 1
+press down 2
+press up 1
+press down 2
+wait 3
+press up 1
+press down 1
+wait 2
+press up 1
+press down 1
+wait 1
+press fire2 1
+press up 1
+press down 1
+wait 2
+press up 1
+press down 1
+wait 118

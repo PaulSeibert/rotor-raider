@@ -15,6 +15,7 @@ const uint8_t g_pBobFrames[BOB_TYPES] = {[BOB_SHADOW] = 16, [BOB_CARRIER] = 4, [
 	[BOB_BOMBER] = 8, [BOB_BOAT] = 8, [BOB_CRUISER] = 2, [BOB_FLAK] = 1, [BOB_MISSILE] = 8, [BOB_LOGO] = 1, [BOB_POINTER] = 8, [BOB_GUN] = 24};
 
 const char *const g_pTheatreName[THEATRES] = {"CORAL REACH", "EMBER FLATS", "FROSTLINE"};
+static const tAttractCfg s_sAttractCfg = {ATTRACT_IDLE, SCORES_FRAMES, 0};   // (no credits page: the title has its own)
 
 const char *logicRank(uint32_t ulScore) {
 	return ulScore >= 60000 ? "SKY MARSHAL" : ulScore >= 40000 ? "WING COMMANDER" :
@@ -98,11 +99,12 @@ void logicInit(tGame *g, uint8_t *pTiles, uint16_t uwW, uint16_t uwH) {
 	g->lives = LIVES_START;
 	g->newRank = HI_COUNT;
 	logicScoresDefault(g);
+	attractInit(&g->attract, &s_sAttractCfg);
 	g->wantTheatre = 0xFF;
 }
 
 void logicSetDifficulty(tGame *g, uint8_t ubLevel) {
-	if(ubLevel <= 5) g->difficulty = ubLevel;
+	if(ubLevel <= 5 && !g->demo) g->difficulty = ubLevel;   // (the demo plays on normal)
 }
 
 static void setState(tGame *g, uint8_t ubState, uint16_t uwTimer) {
@@ -122,7 +124,7 @@ void logicStartGame(tGame *g) {
 	g->killed = 0;
 	g->theatre = 0;
 	g->wantTheatre = 0;            // main.c loads it, then logicLoadTheatre
-	setState(g, GS_PLAY, 0);
+	setState(g, GS_CARD, 0);       // the theatre's card first (the card starts when it's loaded)
 }
 
 // ------------------------------------------------------------ hall of fame ---
@@ -147,6 +149,55 @@ COLD void logicScoresDefault(tGame *g) {
 	g->hiScore = hiTop(&g->table);
 }
 
+// ---------------------------------------------------------------- the demo ---
+
+// The title, the attract loop's idle clock at 0 and fire not yet let go
+COLD static void toTitle(tGame *g) {
+	attractReset(&g->attract);
+	g->newRank = HI_COUNT;
+	g->scoresAttract = 0;
+	setState(g, GS_TITLE, 0);
+}
+
+// The fixed state a demo's recording starts from (the dice and the frame's parity)
+COLD static void demoFixState(tGame *g) {
+	g->lfsr = DEMO_SEED;
+	g->frame = DEMO_FRAME;
+}
+
+COLD void logicStartDemo(tGame *g) {
+	g->demoSteer = g->steer;
+	g->demoDifficulty = g->difficulty;
+	g->steer = STEER_CLASSIC;
+	g->difficulty = 3;
+	g->scoresAttract = 0;
+	g->demo = 1;
+	demoFixState(g);
+	demoStart(&g->demoRun, g_pDemo, g_pDemo_RUNS);
+	g->lives = LIVES_START;
+	g->score = 0;
+	g->killed = 0;
+	g->theatre = 0;
+	g->wantTheatre = 0;            // main.c loads a fresh Coral Reach; the play starts there (no card)
+	setState(g, GS_PLAY, 0);
+}
+
+// The demo is over (its recording ended, the gunship was lost, fire was pressed): the player's
+// choices back, nothing counted, a fresh Coral Reach behind the title
+COLD static void demoEnd(tGame *g) {
+	g->demo = 0;
+	g->steer = g->demoSteer;
+	g->difficulty = g->demoDifficulty;
+	g->score = 0;
+	g->killed = 0;
+	g->lives = LIVES_START;
+	g->theatre = 0;
+	g->wantTheatre = 0;
+	g->msg = MSG_NONE;
+	g->msgTimer = 0;
+	toTitle(g);
+}
+
 COLD const char *logicReachedWord(uint8_t ubReached) {
 	return ubReached == 1 ? "CORAL" : ubReached == 2 ? "EMBER" : ubReached == 3 ? "FROST" : "ALL";
 }
@@ -157,10 +208,9 @@ uint8_t logicIsMenu(const tGame *g) {
 
 // After a game: the initials if the score made the table (not GODMODE, not the demo)
 COLD static void gameEnded(tGame *g) {
-	uint8_t r = hiQualify(&g->table, g->score, g->difficulty == 0, 0);
+	uint8_t r = hiQualify(&g->table, g->score, g->difficulty == 0, g->demo);
 	if(r >= HI_COUNT) {
-		g->titleArmed = 0;
-		setState(g, GS_TITLE, 0);
+		toTitle(g);
 		return;
 	}
 	g->newRank = hiInsert(&g->table, g->score, (uint8_t)(g->state == GS_VICTORY ? THEATRES + 1 : g->theatre + 1), g->killed);
@@ -275,6 +325,8 @@ void logicLoadTheatre(tGame *g, const tTheatre *pTh) {
 	enemiesReset(g);
 	say(g, MSG_THEATRE, 220);
 	logicRespawn(g);
+	if(g->demo) demoFixState(g);   // (whatever the frame before it did with the dice)
+	if(g->state == GS_CARD) mmCardBegin(&g->card, (uint8_t)(g->theatre + 1), THEATRES, CARD_FRAMES, CARD_WIPE);
 }
 
 void logicRespawn(tGame *g) {
@@ -315,8 +367,8 @@ void logicRespawn(tGame *g) {
 
 static void addScore(tGame *g, uint16_t uwPts) {
 	g->score += uwPts;
-	// GODMODE doesn't count for the hi-score
-	if(g->score > g->hiScore && g->difficulty) g->hiScore = g->score;
+	// GODMODE and the demo don't count for the hi-score
+	if(g->score > g->hiScore && g->difficulty && !g->demo) g->hiScore = g->score;
 }
 
 static void boomAt(tGame *g, int16_t x, int16_t y, uint8_t isBig) {
@@ -872,19 +924,59 @@ void logicCameraUpdate(tGame *g) {
 
 // ------------------------------------------------------------- the frame ---
 
+// The theatre card: nothing else moves (no enemies, no clocks) until it ends:
+// its time, or a fresh press of fire, then CARD_WIPE pictures in which main.c clears
+// its picture. Its name then shows over the play.
+COLD static void cardUpdate(tGame *g, const tInput *pIn) {
+	if(g->wantTheatre != 0xFF) return;    // (the theatre is still loading)
+	if(mmCardUpdate(&g->card, pIn->fire) == MM_CARD_DONE) {
+		setState(g, GS_PLAY, 0);
+		say(g, MSG_THEATRE, 220);
+	}
+}
+
 void logicUpdate(tGame *g, const tInput *pIn) {
 	++g->frame;
 	g->events = 0;
+	if(g->state == GS_CARD) {
+		cardUpdate(g, pIn);
+		return;
+	}
+	tInput sDemoIn;
+	if(g->demo) {
+		// the demo plays itself from its recording; fire (let go first), the end of the recording
+		// or the gunship lost: the title
+		uint8_t ubBits = 0;
+		if(attractUpdate(&g->attract, pIn->fire, 0) == ATTRACT_PAGE) {
+			demoEnd(g);
+			return;
+		}
+		if(g->wantTheatre == 0xFF && (!demoNext(&g->demoRun, &ubBits) || g->state != GS_PLAY)) {
+			attractDemoDone(&g->attract);
+			demoEnd(g);
+			return;
+		}
+		sDemoIn.dx = (int8_t)((ubBits & DEMO_L) ? -1 : (ubBits & DEMO_R) ? 1 : 0);
+		sDemoIn.dy = (int8_t)((ubBits & DEMO_U) ? -1 : (ubBits & DEMO_D) ? 1 : 0);
+		sDemoIn.fire = (uint8_t)((ubBits & DEMO_F) != 0);
+		sDemoIn.fire2 = (uint8_t)((ubBits & DEMO_F2) != 0);
+		pIn = &sDemoIn;
+	}
 	carrierUpdate(g);
 	if(g->stateTimer) --g->stateTimer;
 	switch(g->state) {
 		case GS_TITLE:
 			// left/right: the steering; fire (let go first): start
 			if(pIn->dx && !g->prevFire2) g->steer = pIn->dx < 0 ? STEER_CLASSIC : STEER_ARCADE;
-			if(!pIn->fire) g->titleArmed = 1;
-			else if(g->titleArmed) {
-				g->titleArmed = 0;
-				logicStartGame(g);
+			{
+				// fire (let go first) starts a game; left alone for 12 s the attract loop starts
+				uint8_t r = attractUpdate(&g->attract, pIn->fire, (uint8_t)(pIn->dx || pIn->dy));
+				if(r == ATTRACT_START) logicStartGame(g);
+				else if(r == ATTRACT_PAGE) {
+					g->newRank = HI_COUNT;
+					g->scoresAttract = 1;
+					setState(g, GS_SCORES, 0);
+				}
 			}
 			g->prevFire = pIn->fire;
 			break;
@@ -911,7 +1003,7 @@ void logicUpdate(tGame *g, const tInput *pIn) {
 				if(g->theatre + 1 < THEATRES) {
 					++g->theatre;
 					g->wantTheatre = g->theatre;   // main.c loads it
-					setState(g, GS_PLAY, 0);
+					setState(g, GS_CARD, 0);
 				}
 				else setState(g, GS_VICTORY, OVER_FRAMES);
 			}
@@ -929,12 +1021,19 @@ void logicUpdate(tGame *g, const tInput *pIn) {
 			}
 			break;
 		case GS_SCORES:
-			// fire (let go first) or the time: the title; not before the save is done
+			if(g->scoresAttract) {
+				// the attract loop's page: its time, then the demo; fire (let go first): the title
+				if(attractUpdate(&g->attract, pIn->fire, 0) == ATTRACT_PAGE) {
+					if(g->attract.ubPage == ATTRACT_DEMO) logicStartDemo(g);
+					else toTitle(g);
+				}
+				break;
+			}
+			// after a game: fire (let go first) or the time: the title; not before the save is done
 			if(!pIn->fire) g->titleArmed = 1;
 			if(!g->scoresChanged && (!g->stateTimer || (g->titleArmed && pIn->fire))) {
 				g->titleArmed = 0;
-				g->newRank = HI_COUNT;
-				setState(g, GS_TITLE, 0);
+				toTitle(g);
 			}
 			break;
 	}

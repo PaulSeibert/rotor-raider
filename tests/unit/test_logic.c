@@ -1,6 +1,8 @@
 // Host-side tests for src/logic.c (ROTOR RAIDER). Run with: agk unit
 #include <stdio.h>
+#include <string.h>
 #include "logic.h"
+#include "cardmap.h"
 
 static int s_failures;
 
@@ -1209,7 +1211,7 @@ static void testClearTheatreThenNext(void) {
 	step(NONE, 1);
 	CHECK(g.state == GS_CLEAR);
 	step(NONE, CLEAR_FRAMES + 1);
-	CHECK(g.theatre == 1 && g.wantTheatre == 1 && g.state == GS_PLAY);
+	CHECK(g.theatre == 1 && g.wantTheatre == 1 && g.state == GS_CARD);   // the next theatre's card first
 	g.wantTheatre = 0xFF;                    // (as loading it does)
 	g.theatre = THEATRES - 1;
 	g.factoriesLeft = 0;
@@ -1228,7 +1230,7 @@ static void testTitleStartsAGame(void) {
 	step((tInput){.dx = 1}, 1);
 	CHECK(g.steer == STEER_ARCADE);
 	step((tInput){.fire = 1}, 1);
-	CHECK(g.state == GS_PLAY && g.wantTheatre == 0 && g.score == 0 && g.lives == LIVES_START);
+	CHECK(g.state == GS_CARD && g.wantTheatre == 0 && g.score == 0 && g.lives == LIVES_START);   // the card first
 }
 
 static void testTestJumpOnlyInGodmode(void) {
@@ -1448,6 +1450,304 @@ static void testTestEnd(void) {
 	CHECK(!logicTestEnd(&g));                       // not in play: nothing
 }
 
+// ---- the theatre card (1.5) ----
+
+// A new game from the title: the card first, once the theatre is loaded
+static void startToTheCard(void) {
+	newTheatre(800, 300);
+	g.uwJetTimer = g.uwBomberTimer = g.uwBoatTimer = 60000;
+	g.state = GS_TITLE;
+	step(NONE, 1);
+	step((tInput){.fire = 1}, 1);
+	CHECK(g.state == GS_CARD && g.wantTheatre == 0);
+	g.wantTheatre = 0xFF;                           // (main.c loads the theatre)
+	logicLoadTheatre(&g, &s_sTh);
+	g.state = GS_CARD;
+}
+
+// The card waits for the load, then runs its time; nothing else moves; then the play
+static void testCardThenPlay(void) {
+	startToTheCard();
+	step(NONE, 1);
+	uint16_t uwJet = g.uwJetTimer, uwAlert = g.uwAlertClock;
+	int16_t cx = g.carrier.x;
+	step(NONE, CARD_FRAMES - 2);
+	CHECK(g.state == GS_CARD);
+	CHECK(g.uwJetTimer == uwJet && g.uwAlertClock == uwAlert && g.carrier.x == cx);   // the world waits
+	step(NONE, 1);
+	CHECK(g.state == GS_CARD && mmCardWiping(&g.card) == CARD_WIPE);              // its time is up: the wipe (main.c clears the picture)
+	step(NONE, CARD_WIPE);
+	CHECK(g.state == GS_PLAY && g.msg == MSG_THEATRE && g.msgTimer > 200);       // then its name over the play
+	CHECK(g.chop.landed);
+	// a theatre still loading doesn't run the card down
+	startToTheCard();
+	g.wantTheatre = 1;
+	step(NONE, CARD_FRAMES + 5);
+	CHECK(g.state == GS_CARD);
+}
+
+// A fresh press of fire skips the card; fire held from the title does not
+static void testCardFreshFireSkips(void) {
+	startToTheCard();
+	step((tInput){.fire = 1}, 40);                  // still held from the title
+	CHECK(g.state == GS_CARD);
+	step(NONE, 5);
+	step((tInput){.fire = 1}, 1);
+	CHECK(g.state == GS_CARD && mmCardWiping(&g.card));                          // skipped: the wipe
+	step(NONE, CARD_WIPE);
+	CHECK(g.state == GS_PLAY);
+}
+
+// After a theatre is cleared the next one's card comes before its play
+static void testCardAfterClear(void) {
+	newTheatre(800, 300);
+	g.uwJetTimer = g.uwBomberTimer = g.uwBoatTimer = 60000;
+	g.pStructs[0].hp = 0;
+	g.factoriesLeft = 0;
+	step(NONE, 1);
+	CHECK(g.state == GS_CLEAR);
+	step(NONE, CLEAR_FRAMES + 1);
+	CHECK(g.theatre == 1 && g.wantTheatre == 1 && g.state == GS_CARD);
+	g.wantTheatre = 0xFF;
+	logicLoadTheatre(&g, &s_sTh);
+	CHECK(g.card.ubMission == 2 && g.card.ubOf == THEATRES && g.card.uwLeft == CARD_FRAMES);
+	step(NONE, CARD_FRAMES + CARD_WIPE);
+	CHECK(g.state == GS_PLAY);
+}
+
+static tMmImage s_sCardImg;
+static uint8_t s_pCardBuf[MM_BYTES(CARD_W, CARD_H, CARD_PLANES)] __attribute__((aligned(4)));
+
+// The card's picture: land and coast from the tile map, the factory (red, then dark
+// once destroyed), the carrier, the arrow over the gunship, the route's three nodes
+static void testCardMap(void) {
+	newTheatre(800, 300);
+	g.theatre = 1;                                  // Ember Flats: Coral Reach is behind
+	// an island: land 20..29 x 20..24, a coast tile at (19, 20)
+	for(int ty = 20; ty < 25; ++ty)
+		for(int tx = 20; tx < 30; ++tx) g.map.pTiles[ty * g.map.uwW + tx] = TILE_LAND0;
+	g.map.pTiles[20 * g.map.uwW + 19] = 5;
+	mmImageInit(&s_sCardImg, s_pCardBuf, CARD_W, CARD_H, CARD_PLANES);
+	cardMapDraw(&s_sCardImg, &g);
+	const int x0 = CARD_MAP_X + 1, y0 = CARD_MAP_Y + 1;
+	CHECK(mmGet(&s_sCardImg, x0 + 25, y0 + 22) == CARD_PEN_LAND);
+	CHECK(mmGet(&s_sCardImg, x0 + 19, y0 + 20) == CARD_PEN_COAST);
+	CHECK(mmGet(&s_sCardImg, x0 + 10, y0 + 22) == CARD_PEN_SEA && mmGet(&s_sCardImg, x0 + 30, y0 + 22) == CARD_PEN_SEA);
+	CHECK(mmGet(&s_sCardImg, CARD_MAP_X, CARD_MAP_Y) == CARD_PEN_COAST);          // the frame
+	CHECK(mmGet(&s_sCardImg, CARD_MAP_X + 81, CARD_MAP_Y + 81) == CARD_PEN_COAST);   // (the 80 x 80 test map's)
+	// the factory (3 x 3 tiles at 30, 30): red; destroyed: dark
+	CHECK(mmGet(&s_sCardImg, x0 + 31, y0 + 31) == CARD_PEN_RED);
+	g.pStructs[0].hp = 0;
+	cardMapDraw(&s_sCardImg, &g);
+	CHECK(mmGet(&s_sCardImg, x0 + 31, y0 + 31) == CARD_PEN_BLACK && mmGet(&s_sCardImg, x0 + 29, y0 + 31) != CARD_PEN_RED);
+	// the carrier at tile (20, 60): a yellow bar, 6 tiles wide
+	CHECK(mmGet(&s_sCardImg, x0 + 20, y0 + 60) == CARD_PEN_YELLOW && mmGet(&s_sCardImg, x0 + 17, y0 + 60) == CARD_PEN_YELLOW);
+	CHECK(mmGet(&s_sCardImg, x0 + 23, y0 + 60) == CARD_PEN_SEA);
+	// the gunship on the deck: the arrow's tip above the bar
+	int cx = g.chop.x >> 4, cy = g.chop.y >> 4;
+	CHECK(mmGet(&s_sCardImg, x0 + cx, y0 + cy - 3) == CARD_PEN_WHITE);
+	// the route: Coral Reach done (a filled yellow node), this one current (a white ring, hollow
+	// inside, an arrow), Frostline to come (a hollow node with a grey outline)
+	CHECK(mmGet(&s_sCardImg, CARD_ROUTE_X + 6, CARD_ROUTE_Y + 6) == CARD_PEN_YELLOW);
+	CHECK(mmGet(&s_sCardImg, CARD_ROUTE_X, CARD_ROUTE_Y + CARD_ROUTE_STEP) == CARD_PEN_WHITE);
+	CHECK(mmGet(&s_sCardImg, CARD_ROUTE_X + 6, CARD_ROUTE_Y + CARD_ROUTE_STEP + 6) == 0);
+	CHECK(mmGet(&s_sCardImg, CARD_ROUTE_X, CARD_ROUTE_Y + 2 * CARD_ROUTE_STEP) == CARD_PEN_LAND);
+	CHECK(mmGet(&s_sCardImg, CARD_ROUTE_X + 6, CARD_ROUTE_Y + 2 * CARD_ROUTE_STEP + 6) == 0);
+	// the first theatre: nothing done yet, the first node current
+	g.theatre = 0;
+	cardMapDraw(&s_sCardImg, &g);
+	CHECK(mmGet(&s_sCardImg, CARD_ROUTE_X, CARD_ROUTE_Y) == CARD_PEN_WHITE);
+	CHECK(mmGet(&s_sCardImg, CARD_ROUTE_X + 6, CARD_ROUTE_Y + 6) == 0);
+}
+
+static void testCardBrief(void) {
+	char sz[48];
+	newTheatre(800, 300);                           // one factory, Coral Reach
+	cardBrief(&g, sz);
+	CHECK(strcmp(sz, "1 FACTORIES  3 BOMBS EACH  CRUISER 3:00") == 0);
+	g.theatre = 1;
+	g.ubFactories = 6;
+	cardBrief(&g, sz);
+	CHECK(strcmp(sz, "6 FACTORIES  4 BOMBS EACH  CRUISER 2:30") == 0);
+	g.theatre = 2;
+	cardBrief(&g, sz);
+	CHECK(strcmp(sz, "6 FACTORIES  5 BOMBS EACH  CRUISER 2:00") == 0);
+	CHECK(strlen(sz) <= 40);
+}
+
+// ---- the attract loop and the demo (1.5) ----
+
+// The real Coral Reach (disk/theatre1.bin), read fresh each time: the game changes its tiles
+static uint8_t s_pReal[THEATRE_HEADER + MAP_W_MAX * MAP_H_MAX + 6 * 64 + 18 * BANDS_MAX];
+static tTheatre s_sReal;
+
+static void loadRealTheatre(void) {
+	char sz[600];
+	const char *szHere = __FILE__;               // .../tests/unit/test_logic.c
+	size_t n = strlen(szHere);
+	snprintf(sz, sizeof(sz), "%.*sdisk/theatre1.bin", (int)(n - strlen("tests/unit/test_logic.c")), szHere);
+	FILE *f = fopen(sz, "rb");
+	CHECK(f != 0);
+	if(!f) return;
+	size_t nRead = fread(s_pReal, 1, sizeof(s_pReal), f);
+	fclose(f);
+	CHECK(theatreParse(s_pReal, (uint32_t)nRead, &s_sReal));
+	g.map = s_sReal.map;
+}
+
+// What main.c does when the rules ask for a theatre
+static void mainLoadsTheatre(void) {
+	loadRealTheatre();
+	g.wantTheatre = 0xFF;
+	logicLoadTheatre(&g, &s_sReal);
+}
+
+static void freshRealGame(void) {
+	loadRealTheatre();
+	logicInit(&g, s_sReal.map.pTiles, s_sReal.map.uwW, s_sReal.map.uwH);
+	logicLoadTheatre(&g, &s_sReal);
+	g.state = GS_TITLE;
+	g.steer = STEER_ARCADE;                      // the player's own choices, to come back
+	logicSetDifficulty(&g, 5);
+}
+
+// Left alone on the title: the hall of fame, then the demo (on normal, classic steering)
+static void toTheDemo(void) {
+	step(NONE, ATTRACT_IDLE - 1);
+	CHECK(g.state == GS_TITLE);
+	step(NONE, 1);
+	CHECK(g.state == GS_SCORES && g.scoresAttract && g.newRank == HI_COUNT);
+	step(NONE, SCORES_FRAMES - 1);
+	CHECK(g.state == GS_SCORES);
+	step(NONE, 1);
+	CHECK(g.demo && g.state == GS_PLAY && g.wantTheatre == 0 && g.steer == STEER_CLASSIC && g.difficulty == 3);
+	mainLoadsTheatre();
+	CHECK(g.state == GS_PLAY && g.demoSteer == STEER_ARCADE && g.demoDifficulty == 5);
+}
+
+typedef struct { uint32_t frames; int16_t x, y; uint8_t damage, factories, lost; uint32_t score; uint16_t lfsr; int16_t xMid, yMid; } tDemoRun;
+
+static void playTheDemo(tDemoRun *r) {
+	memset(r, 0, sizeof(*r));
+	while(g.demo && r->frames < 3000) {
+		step(NONE, 1);
+		++r->frames;
+		if(!g.demo) break;
+		if(r->frames == 300) { r->xMid = g.chop.x; r->yMid = g.chop.y; }
+		r->x = g.chop.x;
+		r->y = g.chop.y;
+		r->damage = g.chop.damage;
+		r->factories = g.factoriesLeft;
+		r->score = g.score;
+		r->lfsr = g.lfsr;
+		if(g.state != GS_PLAY) r->lost = 1;
+	}
+}
+
+// Title -> hall of fame -> the recorded flight on the real Coral Reach: it takes off, flies to the
+// factory and bombs it down without being lost; then the title, the player's choices back,
+// nothing counted, a fresh Coral Reach behind it
+static void testAttractLoopAndDemo(void) {
+	freshRealGame();
+	g.hiScore = 500;                              // a HI the demo's 1,000 would beat if it counted
+	toTheDemo();
+	tDemoRun r;
+	playTheDemo(&r);
+	printf("demo: %u frames, factories left %d, score %u, damage %d, lost %d\n", (unsigned)r.frames, r.factories, (unsigned)r.score, r.damage, r.lost);
+	CHECK(r.frames == demoFrames(g_pDemo, g_pDemo_RUNS) + 1);     // its inputs, then the frame that sees the end
+	CHECK(r.factories == 5 && r.score >= 1000 && !r.lost && r.damage < DAMAGE_WARN);   // the factory fell, the gunship flew on
+	CHECK(!g.demo && g.state == GS_TITLE);
+	CHECK(g.steer == STEER_ARCADE && g.difficulty == 5 && g.score == 0 && g.lives == LIVES_START);
+	CHECK(g.hiScore == 500 && g.table.pEntries[0].score == 10000 && g.newRank == HI_COUNT);   // nothing counted
+	CHECK(g.wantTheatre == 0);                    // main.c loads Coral Reach fresh behind the title
+	mainLoadsTheatre();
+	CHECK(g.factoriesLeft == 6);
+	// and round again: the title idles for another 12 s before the hall of fame
+	step(NONE, ATTRACT_IDLE - 1);
+	CHECK(g.state == GS_TITLE);
+	step(NONE, 1);
+	CHECK(g.state == GS_SCORES);
+}
+
+// The demo flies the same every time, whatever the game did before: the dice, the frame
+// counter and the theatre are all set fresh
+static void testDemoIsDeterministic(void) {
+	freshRealGame();
+	toTheDemo();
+	tDemoRun a;
+	playTheDemo(&a);
+	mainLoadsTheatre();
+	// a game in between that leaves things dirty: the dice, the frame, the enemies, the clocks
+	g.lfsr = 0x1234;
+	g.frame = 777;
+	g.uwJetTimer = 5;
+	g.uwBoatTimer = 7;
+	g.ubAlertTime = 2;
+	g.uwAlertClock = 4000;
+	g.pAir[0].active = 1;
+	g.pBoats[0].active = 1;
+	g.pEShots[0].active = 1;
+	g.chop.damage = 50;
+	g.chop.bombs = 2;
+	g.carrier.hp = 40;
+	g.cruiser.sunk = 1;
+	g.uwBuild = 5000;
+	g.score = 4000;
+	g.killed = 3;
+	g.theatre = 2;
+	step(NONE, ATTRACT_IDLE + SCORES_FRAMES);
+	CHECK(g.demo);
+	mainLoadsTheatre();
+	tDemoRun b;
+	playTheDemo(&b);
+	CHECK(memcmp(&a, &b, sizeof(a)) == 0);
+	CHECK(a.x == b.x && a.score == b.score && a.lfsr == b.lfsr && a.xMid == b.xMid);
+}
+
+// Fire ends the demo and the hall of fame (a press, after it was let go); to start a game it must be let go again
+static void testFireEndsTheAttractPages(void) {
+	freshRealGame();
+	step(NONE, ATTRACT_IDLE);
+	CHECK(g.state == GS_SCORES);
+	step(NONE, 10);
+	step((tInput){.fire = 1}, 1);
+	CHECK(g.state == GS_TITLE && !g.demo);
+	step((tInput){.fire = 1}, 30);                // still held: no game
+	CHECK(g.state == GS_TITLE);
+	step(NONE, ATTRACT_IDLE + SCORES_FRAMES);     // the demo
+	CHECK(g.demo);
+	mainLoadsTheatre();
+	step(NONE, 60);
+	CHECK(g.demo && g.chop.alt > 0);              // it's flying
+	step((tInput){.fire = 1}, 1);
+	CHECK(!g.demo && g.state == GS_TITLE && g.steer == STEER_ARCADE && g.difficulty == 5 && g.score == 0);
+	step((tInput){.fire = 1}, 30);
+	CHECK(g.state == GS_TITLE);                   // still held
+	step(NONE, 1);
+	step((tInput){.fire = 1}, 1);
+	CHECK(g.state == GS_CARD && !g.demo);         // let go and pressed again: a game (its card first)
+}
+
+// Somebody there (the stick moved) keeps the title from going idle; GODMODE and the
+// difficulty keys do nothing to a running demo
+static void testTitleIdleAndDemoDifficulty(void) {
+	freshRealGame();
+	step(NONE, 500);
+	step((tInput){.dx = 1}, 1);                   // the steering choice
+	CHECK(g.steer == STEER_ARCADE);
+	step(NONE, ATTRACT_IDLE - 1);
+	CHECK(g.state == GS_TITLE);
+	step(NONE, 1);
+	CHECK(g.state == GS_SCORES);
+	step(NONE, SCORES_FRAMES);
+	mainLoadsTheatre();
+	CHECK(g.demo);
+	logicSetDifficulty(&g, 0);                    // Ctrl+L, 0 in the middle of a demo
+	CHECK(g.difficulty == 3);
+	step(NONE, 30);
+	CHECK(g.demo);
+}
+
 int main(void) {
 	testHeadingTable();
 	testStickToHeading();
@@ -1521,6 +1821,15 @@ int main(void) {
 	testGameOverFireSkips();
 	testFactoriesKilledCounted();
 	testTestEnd();
+	testCardThenPlay();
+	testCardFreshFireSkips();
+	testCardAfterClear();
+	testCardMap();
+	testCardBrief();
+	testAttractLoopAndDemo();
+	testDemoIsDeterministic();
+	testFireEndsTheAttractPages();
+	testTitleIdleAndDemoDifficulty();
 	if(s_failures) {
 		printf("%d check(s) failed\n", s_failures);
 		return 1;

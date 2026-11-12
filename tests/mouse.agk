@@ -4,7 +4,10 @@ wait-serial "AGK t0"
 wait 10
 press fire 2
 wait-serial "theatre loaded=0"
-wait 10
+# (the theatre card first: a fresh press of fire skips it)
+wait 3
+press fire 1
+wait 24
 mouse 40 0
 wait 10
 mouse -60 30

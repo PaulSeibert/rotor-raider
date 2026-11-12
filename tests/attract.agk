@@ -1,0 +1,29 @@
+# The attract loop (1.5): left alone on the title for 12 s the hall of fame shows (8 s), then the
+# demo - a recorded flight on Coral Reach, DEMO where the skill shows in the HUD: take off, fly
+# to the nearest factory, bomb it down - then the title again, with the player's steering
+# (ARCADE, chosen here) back. Fire then starts a game with its theatre card (the demo's
+# difficulty and steering were never the player's). The rules of it - the timing, the fire
+# rules, the recording replayed twice with the same result - are in tests/unit.
+wait-serial "AGK t0"
+press right 2
+wait 10
+screenshot title
+wait-serial "state=6" 700
+wait 130
+screenshot scores
+expect-no-serial "AGK sfx start"
+wait-serial "AGK demo" 500
+wait 40
+screenshot demo
+wait-serial "AGK factory destroyed" 900
+wait-serial "AGK demo over" 300
+wait 30
+screenshot title_after
+# the demo flew a whole factory down without losing the gunship, and never touched the table
+expect-serial "AGK demo[\s\S]*AGK factory destroyed[\s\S]*AGK demo over"
+expect-no-serial "gunship lost"
+expect-no-serial "AGK scores saved"
+# fire on the title: a new game, its card first
+press fire 1
+wait-serial "state=8" 20
+expect-no-serial "AGK ERR"

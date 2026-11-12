@@ -4,7 +4,10 @@ wait-serial "AGK t0"
 wait 10
 press fire 2
 wait-serial "theatre loaded=0"
-wait 10
+# (the theatre card first: a fresh press of fire skips it)
+wait 3
+press fire 1
+wait 24
 key 0x63
 key 0x28
 wait 5
@@ -80,6 +83,10 @@ wait 60
 screenshot cleared
 expect-serial "music fanfare"
 wait-serial "theatre loaded=1" 600
+# Ember Flats' card first (its map, the route with Coral Reach done), then the play
 wait 60
-screenshot ember
+screenshot ember_card
 expect-serial "factories=6"
+press fire 1
+wait 40
+screenshot ember

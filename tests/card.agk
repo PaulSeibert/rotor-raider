@@ -1,0 +1,20 @@
+# The theatre card (1.5): after the title's fire, once Coral Reach is loaded, a card
+# for 250 frames: THEATRE 1 OF 3, the name, the island's map (a pixel a tile) with the
+# factories, the carrier and an arrow at the gunship, the route across the three
+# theatres, a legend and the brief. Fire held from the title does not skip it; a
+# fresh press does, and the play starts.
+wait-serial "AGK t0"
+wait 10
+press fire 2
+wait-serial "theatre loaded=0"
+wait 100
+screenshot card
+expect-serial "state=8"
+# still the card 100 frames on (fire was held from the title), and the world waits
+expect-serial "factories=6"
+press fire 1
+wait-serial "state=1" 40
+wait 30
+screenshot play
+expect-serial "landed=1"
+expect-no-serial "AGK ERR"

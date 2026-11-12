@@ -10,6 +10,9 @@ wait 40
 screenshot classic
 press fire 2
 wait-serial "theatre loaded=0"
+# (the theatre card first: a fresh press of fire skips it)
+wait 3
+press fire 1
 wait 30
 screenshot deck
 expect-serial "state=1"

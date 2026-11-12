@@ -28,10 +28,16 @@ faster-built cruiser) and **Frostline** (5, and missiles almost at once).
 | File | What it is |
 |---|---|
 | [**rotor-raider.adf**](https://github.com/PaulSeibert/rotor-raider/releases/latest/download/rotor-raider.adf) | The game disk: a bootable Amiga floppy image. This is all you need to play. |
-| [rotor-raider-1.4.zip](https://github.com/PaulSeibert/rotor-raider/releases/latest/download/rotor-raider-1.4.zip) | The full release: the disk, the program for hard-disk installs, a README, the music credits and the demo GIF |
+| [rotor-raider-1.5.zip](https://github.com/PaulSeibert/rotor-raider/releases/latest/download/rotor-raider-1.5.zip) | The full release: the disk, the program for hard-disk installs, a README, the music credits and the demo GIF |
 | [rotor-raider-demo.mp4](https://github.com/PaulSeibert/rotor-raider/releases/latest/download/rotor-raider-demo.mp4) | The gameplay video |
 
 All versions are on the [Releases page](https://github.com/PaulSeibert/rotor-raider/releases).
+
+**New in 1.5:**
+- **a hall of fame saved to the disk**: the five best scores with your initials, the theatre you reached and the factories you destroyed. A score that makes the table asks for your initials (stick up/down for a letter, fire for the next, left to go back; 30 s and what you chose stands), shows the table and writes it to the game disk (`raiderscores`). The HUD's HI is the table's best. Games in GODMODE never count. On a write-protected disk it says so and the scores are lost at power-off;
+- **a card before each theatre**: THEATRE 2 OF 3, its name, a map of the island with the six factories, the carrier and where you are, the route across the three theatres (the ones you have cleared ticked off), and a one-line brief (how many bombs a factory takes, how long the cruiser needs). A fresh press of fire skips it;
+- **an attract loop**: leave the title alone for 12 s and it shows the hall of fame, then plays itself - a recorded flight that takes off from the carrier and bombs the nearest factory down, with DEMO in the HUD - then returns to the title. Fire ends any page. The demo never touches your scores or settings;
+- all three come from new techniques in the Amiga Game Kit (`hiscore`, `missionmap`, `attract`), extracted from Rotor Rescue, so the next games get them nearly for free.
 
 **New in 1.4:**
 - new art throughout: the gunship, the interceptors, bombers, boats, the carrier and the cruiser, the explosions, the AA guns and a new terrain kit, with a fix for Frostline, where factories and roads used to vanish on the snow;
@@ -139,6 +145,14 @@ the score bar (SK3) and stays until you change it.
   flare yellow and white and a short high beep sounds on its side of the
   screen; its missile leaves 16 frames later on normal (24 on easiest, 12 on
   hardest). Get off its line, or out of its sight, and it holds its fire.
+- Your score goes in the **hall of fame** if it is in the top five (not in GODMODE).
+  Enter your initials with the stick; the table is saved on the disk you booted
+  from (so use a copy of the ADF that isn't write-protected: in WinUAE, untick
+  "write-protected" on the floppy; on a real Amiga, slide the tab shut). The file
+  is `raiderscores`, 56 bytes; delete it to get the default table back.
+- Each theatre starts with a **card**: the island's map, the carrier (yellow), the
+  factories (red), you (the white arrow), the route and what's coming. Press fire
+  (after letting go of it) to skip it.
 - The HUD shows the score, gunships left, damage, bombs, the carrier's
   strength, the shipyard's progress, factories left and a map of the whole
   theatre (red: factories, yellow: the carrier, white: you, orange: planes).

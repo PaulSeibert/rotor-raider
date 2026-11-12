@@ -8,6 +8,10 @@ expect-sound title title_end
 expect-serial "music (theme|dog68)"
 press fire 2
 wait-serial "theatre loaded=0"
+# (the theatre card first: a fresh press of fire skips it)
+wait 3
+press fire 1
+wait 24
 press up 40
 mark gun
 press fire 1

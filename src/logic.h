@@ -14,6 +14,8 @@
 
 #include <stdint.h>
 #include "hiscore.h"   // the hall of fame (the kit's hiscore technique)
+#include "missionmap.h" // the theatre card (the kit's missionmap technique)
+#include "attract.h"    // the attract loop and the demo (the kit's attract technique)
 
 // a 16 x 16 -> 32 bit multiply: the 68000's muls.w (int maths would call a
 // slow library routine), plain C on the host for the unit tests
@@ -201,7 +203,8 @@ typedef struct {
 
 enum { GS_TITLE, GS_PLAY, GS_LOST, GS_CLEAR, GS_OVER, GS_VICTORY,
 	GS_SCORES,   // the hall of fame: after a new entry (the attract loop shows it too)
-	GS_ENTRY };  // a score that made the table: the player's initials
+	GS_ENTRY,    // a score that made the table: the player's initials
+	GS_CARD };   // the theatre card, before the play: the map, the route, the brief
 enum { MSG_NONE, MSG_THEATRE, MSG_FACTORY, MSG_CRUISER, MSG_SUNK, MSG_CRUISER_SUNK, MSG_RELOAD, MSG_REPAIR, MSG_CRUISER_UP };
 extern const char *const g_pTheatreName[3];   // (THEATRES)
 
@@ -257,6 +260,13 @@ typedef struct {
 	uint8_t newRank;               // the entry being or just made (HI_COUNT: none)
 	uint8_t scoresChanged;         // set when an entry is done: main.c saves the table
 	uint16_t killed;               // factories destroyed this game (a hall of fame field)
+	tMmCard card;                  // the theatre card's clock (GS_CARD)
+	// the attract loop (1.5): the title idle -> the hall of fame -> a recorded demo -> the title
+	tAttract attract;
+	uint8_t scoresAttract;         // GS_SCORES is the attract loop's page (not the table after a game)
+	uint8_t demo;                  // the demo is playing: no score counts, a DEMO marker, fire ends it
+	uint8_t demoSteer, demoDifficulty;   // the player's, put back after it
+	tDemo demoRun;                 // where it is in the recording
 } tGame;
 
 // events bits
@@ -422,11 +432,24 @@ void logicSetDifficulty(tGame *g, uint8_t ubLevel);   // 0 invincible .. 5
 // (GODMODE, 0) never ranks.
 #define SCORES_FRAMES 400      // the table shows this long
 #define SCORES_SKIP 100        // game over: fire skips it after this many of its frames
+#define CARD_FRAMES 250        // the theatre card shows this long (a fresh press of fire skips it)
+#define CARD_WIPE 18           // then 18 pictures in which its picture is cleared, a 16-row strip a picture (9 strips, both buffers), top to bottom
 extern const tHiConfig g_sHiConfig;
 void logicScoresDefault(tGame *g);                  // the fresh disk's table
 uint8_t logicIsMenu(const tGame *g);                // the title or the hall of fame
 const char *logicReachedWord(uint8_t ubReached);    // CORAL, EMBER, FROST, ALL
 uint8_t logicTestEnd(tGame *g);                     // tests: the game ends now (as game over)
+
+// The attract loop and the demo (1.5; section 10.1). The demo is a recorded flight on Coral Reach
+// (src/demodata.c, made by the kit's tools/scen2demo.py from tools/demoflight.agk) played from a
+// fixed state: the theatre loaded fresh, steering classic, difficulty 3, the random seed and the
+// frame counter set (logicLoadTheatre does it for a demo). It never touches the table or the HI.
+#define ATTRACT_IDLE 600       // idle frames on the title before the hall of fame (12 s)
+#define DEMO_FRAME 256         // the frame counter's value when a demo starts (a multiple of 4 and 64)
+#define DEMO_SEED 0xACE1       // the dice's seed (as at boot)
+extern const uint8_t g_pDemo[][2];
+extern const uint16_t g_pDemo_RUNS;
+void logicStartDemo(tGame *g);                      // (from the attract loop; main.c then loads a fresh Coral Reach)
 void logicStartGame(tGame *g);             // from the title: theatre 0 (main.c loads it)
 void logicHitChopper(tGame *g, uint8_t ubDamage);
 void logicStructRepair(tGame *g, tStruct *s, uint8_t ubHp);
