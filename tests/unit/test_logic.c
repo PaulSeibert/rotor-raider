@@ -362,6 +362,7 @@ static void testLoadTheatre(void) {
 	CHECK(g.ubStructs == 2 && g.factoriesLeft == 1);
 	CHECK(g.pStructs[0].type == OBJ_FACTORY && g.pStructs[0].hp == FACTORY_HP);
 	CHECK(g.pStructs[1].type == OBJ_TURRET && g.pStructs[1].hp == TURRET_HP);
+	CHECK(g.ubFactoryStructs == 1 && g.pFactoryStructs[0] == 0);   // (the repairs' list)
 	CHECK(g.carrier.x == 20 * TILE + 8 && g.carrier.xMin == 10 * TILE && g.carrier.xMax == 40 * TILE);
 	CHECK(logicTileAt(&g.map, 30 * TILE, 30 * TILE) == TILE_FACTORY);       // drawn into the map
 	CHECK(logicTileAt(&g.map, 32 * TILE, 32 * TILE) == TILE_FACTORY + 8);
@@ -434,6 +435,29 @@ static void testThreeBombsDestroyAFactory(void) {
 	CHECK(g.pStructs[0].hp == 0 && g.factoriesLeft == 0);
 	CHECK(logicTileAt(&g.map, 31 * TILE, 31 * TILE) == TILE_FACTORY + 18 + 4);   // rubble
 	CHECK(g.events & EV_FACTORY || g.score >= 1000);
+}
+
+// A bomb landing at (x, y) this frame: 1 if it reached the factory (px 480..527 both ways), 2 the
+// turret above it (496..511 x 448..463), 3 both
+static uint8_t blastAt(int16_t x, int16_t y) {
+	newTheatre(100, 900);
+	g.pBombs[0] = (tShot){.x = x, .y = y, .active = 1, .alt = 1};
+	step(NONE, 1);
+	return (uint8_t)((g.pStructs[0].hp < FACTORY_HP) | (g.pStructs[1].hp < TURRET_HP) << 1);
+}
+
+// A blast reaches what's within BLAST_R of it, to the pixel (bombsUpdate's quick tests
+// mustn't change that)
+static void testBlastReachEdges(void) {
+	CHECK(blastAt(504, 480 + 48 + BLAST_R - 1) == 1);          // below the factory: just in reach
+	CHECK(blastAt(504, 480 + 48 + BLAST_R) == 0);              // just out
+	CHECK(blastAt(504, 480 - BLAST_R) == 3);                   // above it: it and the turret
+	CHECK(blastAt(504, 448 - BLAST_R) == 2);                   // the turret's top edge
+	CHECK(blastAt(504, 448 - BLAST_R - 1) == 0);
+	CHECK(blastAt(480 - BLAST_R, 504) == 1);                   // the factory's sides
+	CHECK(blastAt(480 - BLAST_R - 1, 504) == 0);
+	CHECK(blastAt(480 + 48 + BLAST_R - 1, 504) == 1);
+	CHECK(blastAt(480 + 48 + BLAST_R, 504) == 0);
 }
 
 static void testDamagedFactoryRepairs(void) {
@@ -1779,6 +1803,7 @@ int main(void) {
 	testCannonKillsTurret();
 	testReticleIsWhereTheBombLands();
 	testThreeBombsDestroyAFactory();
+	testBlastReachEdges();
 	testDamagedFactoryRepairs();
 	testOneButtonHoldDropsABomb();
 	testTwoButtonsAutofire();

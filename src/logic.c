@@ -274,6 +274,7 @@ static void structTiles(tGame *g, const tStruct *s) {
 void logicLoadTheatre(tGame *g, const tTheatre *pTh) {
 	g->ubStructs = 0;
 	g->ubTurrets = 0;
+	g->ubFactoryStructs = 0;
 	g->factoriesLeft = 0;
 	g->ubSpawns = 0;
 	for(uint16_t i = 0; i < pTh->uwObjs; ++i) {
@@ -293,6 +294,7 @@ void logicLoadTheatre(tGame *g, const tTheatre *pTh) {
 		}
 		if(g->ubStructs >= STRUCT_MAX) continue;
 		if(o->type == OBJ_TURRET) g->pTurrets[g->ubTurrets++] = g->ubStructs;
+		if(o->type == OBJ_FACTORY) g->pFactoryStructs[g->ubFactoryStructs++] = g->ubStructs;
 		tStruct *s = &g->pStructs[g->ubStructs++];
 		s->type = o->type;
 		s->tx = o->tx;
@@ -551,6 +553,7 @@ __attribute__((noinline)) static void shotsUpdate(tGame *g) {
 	}
 }
 
+_Static_assert(TILE == 16, "bombsUpdate: rows by >> 4");
 __attribute__((noinline)) static void bombsUpdate(tGame *g) {
 	for(uint8_t i = 0; i < BOMB_FALL_MAX; ++i) {
 		tShot *s = &g->pBombs[i];
@@ -561,9 +564,17 @@ __attribute__((noinline)) static void bombsUpdate(tGame *g) {
 		s->active = 0;
 		boomAt(g, s->x, s->y, 1);
 		enemiesBlast(g, s->x, s->y);
-		// everything in reach: a factory takes BOMB_DAMAGE, smaller things go
-		for(uint8_t k = 0; k < g->ubStructs; ++k) {
-			tStruct *t = &g->pStructs[k];
+		// everything in reach: a factory takes BOMB_DAMAGE, smaller things go. (First the rows
+		// a structure's top can be on to reach it, the tallest - a factory - 3 tiles: one byte
+		// compare a structure. The landing picture is the fight's heaviest, and the full test
+		// on every structure took ~25 raster lines of it on an A500.)
+		int16_t wTyLo = (int16_t)(((s->y - BLAST_R - 3 * TILE) >> 4) + 1), wTyHi = (int16_t)((s->y + BLAST_R) >> 4);
+		if(wTyLo < 0) wTyLo = 0;
+		if(wTyHi < wTyLo) continue;
+		uint8_t ubTyLo = (uint8_t)wTyLo, ubTySpan = (uint8_t)(wTyHi - wTyLo);
+		tStruct *t = g->pStructs;
+		for(uint8_t k = g->ubStructs; k--; ++t) {
+			if((uint8_t)(t->ty - ubTyLo) > ubTySpan) continue;
 			uint8_t w, h;
 			structSize(t->type, &w, &h);
 			int16_t x0 = (int16_t)(t->tx * TILE), y0 = (int16_t)(t->ty * TILE);
@@ -575,12 +586,14 @@ __attribute__((noinline)) static void bombsUpdate(tGame *g) {
 	}
 }
 
-// Damaged factories mend: every 4th frame, 4 frames' worth
+// Damaged factories mend: every 4th frame, 4 frames' worth. (Only the factories: the loop over
+// all 48 structures cost ~12 raster lines of every 4th picture on an A500, and the serial
+// reports land on those pictures too.)
 __attribute__((noinline)) static void structsUpdate(tGame *g) {
 	if(g->frame & 3) return;
-	for(uint8_t i = 0; i < g->ubStructs; ++i) {
-		tStruct *s = &g->pStructs[i];
-		if(s->type != OBJ_FACTORY || !s->hp || s->hp >= logicFactoryHp(g)) continue;
+	for(uint8_t i = 0; i < g->ubFactoryStructs; ++i) {
+		tStruct *s = &g->pStructs[g->pFactoryStructs[i]];
+		if(!s->hp || s->hp >= logicFactoryHp(g)) continue;
 		s->timer = (uint16_t)(s->timer + 4);
 		if(s->timer < FACTORY_REPAIR) continue;
 		s->timer = 0;
