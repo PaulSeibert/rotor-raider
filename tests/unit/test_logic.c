@@ -524,16 +524,18 @@ static void testTurretFiresFlakInRange(void) {
 // just before it; at least 12 frames (the playbook's floor) on every difficulty,
 // hardest included (Paul, 2026-11-11). Over 3 minutes of hovering in range on
 // every difficulty, on every alert level.
-// The table: 16 normal; 24 / 20 / 16 / 14 / 12 on skills 1-5; GODMODE (0) is normal.
+// The table as it plays: 16 normal; 24 / 20 / 16 / 16 / 12 on skills 1-5; GODMODE (0) is
+// normal. Paul asked for 14 on skill 4; a gun is looked at every 4th frame, so 14 plays as
+// 16 and the table says 16 (skill 4 stays harder through damage, aim and cooldown).
 static void testAaTellTable(void) {
-	static const uint8_t pWant[6] = {16, 24, 20, 16, 14, 12};
+	static const uint8_t pWant[6] = {16, 24, 20, 16, 16, 12};
 	for(uint8_t d = 0; d <= 5; ++d) {
 		turretGame();
 		logicSetDifficulty(&g, d);
 		CHECK(logicTurretTell(&g) == pWant[d]);
 		CHECK(logicTurretTell(&g) >= 12);
 	}
-	// what plays (a gun is looked at every 4th frame): 14 plays as 16, 12 as 12
+	// what plays: exactly the table (steps of 4 frames)
 	static const uint8_t pPlays[6] = {16, 24, 20, 16, 16, 12};
 	for(uint8_t d = 0; d <= 5; ++d) {
 		turretGame();

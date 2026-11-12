@@ -218,15 +218,16 @@ missiles at level 3 / 2 / 1 by theatre.
 | **cruiser** | 40 (bomb 8, gun 1) | sails along the carrier's lane from the far side at 0.5 px/frame, stops 140 px from the carrier | shells the carrier (3 px/frame, 15 damage; 7 to sink it) every 120 frames | klaxon on sailing | 3000 |
 
 - **Tells.** Every AA round and every interceptor missile has one (playbook: >= 12 frames).
-  - **AA guns** (**decided by Paul, 2026-11-11**): 16 frames on normal; 24 / 20 / 16 / 14 / 12 on
+  - **AA guns** (**decided by Paul, 2026-11-11**): 16 frames on normal; 24 / 20 / 16 / 16 / 12 on
     skills 1-5; GODMODE (0) is normal's 16. The hardest was 8 frames; it is now 12, the playbook's
     floor. The hardest stays harder through its fire rate, flak damage and aim, not a shorter
-    warning. A gun is looked at every 4th frame, so its tell plays in steps of 4 frames: skill 4's
-    14 plays as 16 (the same glow as normal; skill 4 is harder through damage 10, aim +-8 and a
-    cooldown 20 shorter), and 12 plays as 12.
+    warning. **Paul asked for 14 on skill 4; it plays as 16** because a gun is looked at every 4th
+    frame, so a tell plays in steps of 4 frames. The table is written as it plays (skill 4 = 16, the
+    same glow as normal); skill 4 stays harder than normal through damage 10, aim +-8 and a cooldown
+    20 shorter. Skill 5's 12 plays as 12.
   - **Interceptor missiles** (**decided by Paul, 2026-11-11**): 16 frames on normal, scaled by
-    difficulty like the AA table: 24 / 20 / 16 / 14 / 12 on skills 1-5, GODMODE 16 (a jet is looked
-    at every frame, so these are exact). When a jet is on screen, within 110 px of the gunship
+    difficulty like the AA table: 24 / 20 / 16 / 14 / 12 on skills 1-5, GODMODE 16 (a jet is updated
+    every frame, so these are exact: skill 4's 14 really is 14). When a jet is on screen, within 110 px of the gunship
     and lined up, it does not fire at once: it flashes for the whole tell (a yellow-and-white
     flare at the nose and both wingtips, frames 8-15 of the jet's 16) and a short lock-on beep
     plays as it starts (`lockon`, on the jet's side of the screen, the channel policy of
@@ -236,7 +237,7 @@ missiles at level 3 / 2 / 1 by theatre.
     more than 160 px away. The missile's speed is unchanged (2.75 px/frame).
   - Unit tests: `testNoShotWithoutATell`, `testTellHoldsFireAndCantBeCut` (every flak and missile
     from a gun comes after a tell; a hit never shortens it), `testAaTellTable`,
-    `testNoJetMissileWithoutATell` and `testJetTellAborts` (every jet missile comes after its full
+    `testJetTellTable`, `testNoJetMissileWithoutATell` and `testJetTellAborts` (every jet missile comes after its full
     tell, on every difficulty and alert level; a jet that leaves the screen, breaks off or loses
     the gunship during the tell fires nothing).
 - **Shot speeds. Gap vs playbook** (1-1.5 px/frame): flak 1.5 px/frame (met after 1.4: it was 3);
@@ -266,7 +267,7 @@ Ctrl+L, then a key within two seconds; shown on the score bar (SK3). Tables `ene
 
 | | 1 easiest | 2 easy | **3 normal** | 4 hard | 5 hardest |
 |---|---|---|---|---|---|
-| AA tell (frames; 4-frame steps, so skill 4 plays as 16) | 24 | 20 | 16 | 14 | 12 |
+| AA tell (frames; guns act in 4-frame steps: Paul asked for 14 on skill 4, it plays as 16) | 24 | 20 | 16 | 16 | 12 |
 | interceptor missile tell (frames) | 24 | 20 | 16 | 14 | 12 |
 | flak damage (of 100) | 4 | 6 | 8 | 10 | 12 |
 | aim error (px, +-) | 32 | 24 | 16 | 8 | 4 |
@@ -522,11 +523,11 @@ v1.3 tag is not touched.)
   vAmiga**; it is on no commit. It needs Paul's description and a WinUAE run to reproduce.
 
 **Acceptance criteria** (state as recorded at 2804254; **not re-run for this spec**)
-- [x] `agk unit` passes (58 tests in `tests/unit/test_logic.c`, three files compiled for the host)
-- [x] `agk test` passes on a500, a500-ks31, a500-aros, a1200 (10 scenario files; `f69b004` regenerated the goldens)
+- [x] `agk unit` passes (64 tests in `tests/unit/test_logic.c`, three files compiled for the host; 60 on `main` 8b897e5, 58 when this spec was first written)
+- [x] `agk test` passes on a500, a500-ks31, a500-aros, a1200 (11 scenario files with `jettell.agk`; `f69b004` regenerated the goldens)
 - [x] no dropped frames in the perf scenario, max load under 95%
 - [ ] the pacing checker passes section 5's targets: **no** (threat mean and quiet share miss, by design, README "not tuned"); and the checker (`tools/pace.py`) isn't a build gate
-- [x] tells on every AA round (`testNoShotWithoutATell`, `testAaTellTable`) and every interceptor missile (`testNoJetMissileWithoutATell`, `testJetTellAborts`), none under 12 frames
+- [x] tells on every AA round (`testNoShotWithoutATell`, `testAaTellTable`) and every interceptor missile (`testJetTellTable`, `testNoJetMissileWithoutATell`, `testJetTellAborts`), none under 12 frames
 - [x] cruiser anti-stall in place, unit-tested (`testCruiserEscalatesAndRewards`)
 - [ ] the 512K master boots: **unverified**; README says 1 MB
 - [ ] a release zip with README, CREDITS.txt and a demo video: the 1.3 release exists (`demo/rotor-raider.mp4`); the 1.4 zip is not built
@@ -555,9 +556,9 @@ disk is writable and keys are held in real time.)
 
 **Decided by Paul, 2026-11-11:**
 1. **The AA tell at the hardest skill:** raised from 8 to 12 frames (the playbook's floor). The table is
-   24 / 20 / 16 / 14 / 12 on skills 1-5, normal stays 16, GODMODE equals normal. The hardest stays
-   harder through fire rate, not a shorter warning. (Section 6. Note: guns act every 4th frame, so 14
-   plays as 16.)
+   24 / 20 / 16 / 16 / 12 on skills 1-5 (Paul asked for 14 on skill 4; it plays as 16 because guns act
+   every 4th frame), normal stays 16, GODMODE equals normal. The hardest stays harder through fire
+   rate, not a shorter warning. (Section 6.)
 2. **Interceptor missiles:** add a tell: 16 frames on normal, scaled by difficulty like the AA table,
    a visible flash on the jet (wing and nose, in the pilot art style) and a short lock-on beep within
    the 1.4 channel policy; the missile's speed is unchanged; no missile without the full tell; the
@@ -585,4 +586,4 @@ disk is writable and keys are held in real time.)
 | version | date | change |
 |---|---|---|
 | v1.0 | 2026-11-11 | retroactive: the game as it is at `main` 2804254 (v1.4); the approved art, the HUD and the jet-camping fix are noted as landing |
-| v1.1 | 2026-11-11 | decided by Paul: the hardest AA tell 8 -> 12 frames (table 24 / 20 / 16 / 14 / 12); interceptor missiles get a tell (16 frames on normal, scaled the same, a jet flash and a lock-on beep, aborted when the jet leaves the screen); the README download table follows the version. Landed and described as landed: the pilot art, the restyled HUD with a working minimap (merge 25cbff5), the jet break-off near decks (8b897e5), the key latch (d8fe879). The carrier duplicate-draw report: open, not reproduced in vAmiga. Pacing re-measured (section 5) |
+| v1.1 | 2026-11-11 | decided by Paul: the hardest AA tell 8 -> 12 frames (table as it plays 24 / 20 / 16 / 16 / 12: Paul asked for 14 on skill 4, quantised to the guns' 4-frame cadence); interceptor missiles get a tell (16 frames on normal, scaled the same, a jet flash and a lock-on beep, aborted when the jet leaves the screen); the README download table follows the version. Landed and described as landed: the pilot art, the restyled HUD with a working minimap (merge 25cbff5), the jet break-off near decks (8b897e5), the key latch (d8fe879). The carrier duplicate-draw report: open, not reproduced in vAmiga. Pacing re-measured (section 5) |
