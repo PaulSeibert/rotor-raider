@@ -895,6 +895,134 @@ static void testCruiserEscalatesAndRewards(void) {
 	CHECK(g.score == ulScore + CRUISER_SCORE && g.carrier.hp == CARRIER_HP);
 }
 
+// ---- jets and the carrier's deck (1.4.1) ----
+// Jets used to home on the gunship on the deck, overshoot and turn back
+// round it for as long as it sat there, then ambush it on take-off. Now they
+// break off while it is landed (or going down), and for a short grace after
+// take-off; and no more than one jet commits to a gunship near the carrier.
+#define DECK_NEAR 150          // px from the gunship: "over the carrier"
+#define DECK_HOLD_MAX 100      // frames a jet may spend within DECK_NEAR (a fly-through takes about 90)
+
+static tGame *s_pG;
+static uint8_t s_pWas[AIR_MAX];
+static uint16_t s_pRun[AIR_MAX];
+static uint16_t s_uwMaxRun, s_uwHover, s_uwAttack, s_uwJetsSeen;
+
+static void deckWatch(void) {
+	for(int i = 0; i < AIR_MAX; ++i) {
+		const tAir *a = &g.pAir[i];
+		if(!a->active || a->kind != AIR_JET) { s_pWas[i] = 0; s_pRun[i] = 0; continue; }
+		if(!s_pWas[i]) ++s_uwJetsSeen;
+		s_pWas[i] = 1;
+		int16_t d = logicDist((int16_t)(a->x - g.chop.x), (int16_t)(a->y - g.chop.y));
+		if(d < DECK_NEAR) {
+			++s_uwHover;
+			if(++s_pRun[i] > s_uwMaxRun) s_uwMaxRun = s_pRun[i];
+			if(!a->done) ++s_uwAttack;
+		}
+		else s_pRun[i] = 0;
+	}
+}
+
+static void deckTheatre(void) {
+	const tTheatreObj pObjs[] = {
+		{OBJ_CARRIER, 20, 60, 10, 40, 0},
+		{OBJ_FACTORY, 30, 30, 0, 0, 0},
+		{OBJ_RADAR, 60, 20, 0, 0, 0},
+	};
+	uint32_t ulSize = makeTheatre(80, 80, pObjs, 3);
+	CHECK(theatreParse(s_pFile, ulSize, &s_sTh));
+	logicInit(&g, s_sTh.map.pTiles, s_sTh.map.uwW, s_sTh.map.uwH);
+	logicLoadTheatre(&g, &s_sTh);
+	g.state = GS_PLAY;
+	g.steer = STEER_CLASSIC;
+	g.uwBomberTimer = g.uwBoatTimer = 60000;
+	g.uwJetTimer = 1;
+	for(int i = 0; i < AIR_MAX; ++i) s_pWas[i] = 0, s_pRun[i] = 0;
+	s_uwMaxRun = s_uwHover = s_uwAttack = s_uwJetsSeen = 0;
+}
+
+static void testJetsDoNotCampTheDeck(void) {
+	deckTheatre();
+	CHECK(g.chop.landed);
+	// the cruiser sits by the carrier, 90 s ignored: a jet every 20 s at the gunship
+	g.cruiser.active = 1;
+	g.cruiser.hp = CRUISER_HP;
+	g.cruiser.x = (int16_t)(g.carrier.x + 100);
+	g.cruiser.y = g.carrier.y;
+	g.cruiser.dir = -1;
+	g.cruiser.ubLevel = 2;
+	g.cruiser.uwStall = CRUISER_STALL2 - 1;
+	// three jets already circling the deck when it sits down
+	for(int k = 0; k < 3; ++k) {
+		tAir *a = &g.pAir[k];
+		a->active = 1; a->kind = AIR_JET; a->hp = JET_HP; a->timer = 60; a->done = 0; a->uwLife = 1500;
+		a->x = (int16_t)(g.chop.x + (k - 1) * 70); a->y = (int16_t)(g.chop.y - 60 - 20 * k);
+		a->heading = (uint8_t)(k * 5); a->fx = a->fy = 0;
+	}
+	// 80 s sitting on deck, a jet called every 6 s on top of the natural ones
+	for(int f = 0; f < 4000; ++f) {
+		if(!(f % 300)) g.uwJetTimer = 1;
+		g.carrier.hp = CARRIER_HP;
+		step(NONE, 1);
+		deckWatch();
+		CHECK(g.chop.landed);
+	}
+	printf("deck, landed 80 s: jets %u, frames within %d px %u, longest stay %u frames, attack frames %u\n",
+		s_uwJetsSeen, DECK_NEAR, s_uwHover, s_uwMaxRun, s_uwAttack);
+	CHECK(s_uwMaxRun <= DECK_HOLD_MAX);
+	CHECK(s_uwAttack == 0);
+	// take off with the jet timer due: the grace, then jets come again
+	g.uwJetTimer = 1;
+	s_uwMaxRun = s_uwHover = s_uwAttack = 0;
+	step((tInput){.dy = -1}, 1);
+	CHECK(!g.chop.landed);
+	for(int f = 0; f < JET_DECK_GRACE - 2; ++f) {
+		step((tInput){.dy = -1}, 1);
+		deckWatch();
+	}
+	printf("deck, take-off grace %d frames: frames within %d px %u, longest stay %u, attack frames %u\n",
+		JET_DECK_GRACE, DECK_NEAR, s_uwHover, s_uwMaxRun, s_uwAttack);
+	CHECK(s_uwMaxRun <= DECK_HOLD_MAX && s_uwAttack == 0);
+	// ... and then the jets are back in open play: one is called and hunts
+	step((tInput){.dy = -1}, 400);
+	uint8_t ubJets = 0;
+	for(int i = 0; i < AIR_MAX; ++i) ubJets = (uint8_t)(ubJets + (g.pAir[i].active && g.pAir[i].kind == AIR_JET && !g.pAir[i].done));
+	CHECK(ubJets >= 1);
+}
+
+// Two jets coming at a gunship that is flying near the carrier: one commits
+static void testOneJetAtATimeNearTheCarrier(void) {
+	deckTheatre();
+	g.uwJetTimer = 60000;
+	g.chop.landed = 0;
+	g.chop.alt = ALT_CRUISE;
+	g.chop.x = (int16_t)(g.carrier.x + 80);
+	g.chop.y = (int16_t)(g.carrier.y - 80);
+	for(int k = 0; k < 2; ++k) {
+		tAir *a = &g.pAir[k];
+		a->active = 1; a->kind = AIR_JET; a->hp = JET_HP; a->timer = 60; a->done = 0; a->uwLife = 1500;
+		a->x = (int16_t)(g.carrier.x - 150 + k * 300); a->y = (int16_t)(g.carrier.y - 220);
+		a->heading = k ? 12 : 4; a->fx = a->fy = 0;
+	}
+	uint16_t uwBad = 0;
+	for(int f = 0; f < 600; ++f) {
+		g.chop.x = (int16_t)(g.carrier.x + 80);
+		g.chop.y = (int16_t)(g.carrier.y - 80);
+		g.chop.damage = 0;
+		step(NONE, 1);
+		uint8_t n = 0;
+		for(int i = 0; i < AIR_MAX; ++i) {
+			const tAir *a = &g.pAir[i];
+			n = (uint8_t)(n + (a->active && a->kind == AIR_JET && !a->done &&
+				logicDist((int16_t)(a->x - g.carrier.x), (int16_t)(a->y - g.carrier.y)) < JET_DECK_ZONE));
+		}
+		if(n > 1) ++uwBad;
+	}
+	printf("two jets near the carrier: frames with both committed %u\n", uwBad);
+	CHECK(uwBad == 0);
+}
+
 static void testClearTheatreThenNext(void) {
 	newTheatre(800, 300);
 	g.uwJetTimer = g.uwBomberTimer = g.uwBoatTimer = 60000;
@@ -1040,6 +1168,8 @@ int main(void) {
 	testBoatDeliversAndRepairs();
 	testCruiserSailsAndShipyardSetsBack();
 	testCruiserEscalatesAndRewards();
+	testJetsDoNotCampTheDeck();
+	testOneJetAtATimeNearTheCarrier();
 	testClearTheatreThenNext();
 	testTitleStartsAGame();
 	testTestJumpOnlyInGodmode();

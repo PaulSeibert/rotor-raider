@@ -123,6 +123,7 @@ void enemiesReset(tGame *g) {
 	g->uwBomberTimer = 2400;
 	g->uwBoatTimer = 400;
 	g->uwAlertClock = 0;
+	g->uwDeckGrace = 0;
 	g->ubAlertTime = 0;
 }
 
@@ -320,8 +321,25 @@ static uint8_t offMap(const tGame *g, int16_t x, int16_t y) {
 	return x < -32 || y < -32 || x > (int16_t)(g->map.uwW * TILE + 32) || y > (int16_t)(g->map.uwH * TILE + 32);
 }
 
+// The gunship is on a deck, going down to one, or has just taken off: jets
+// leave it alone (1.4.1: they used to circle the carrier and ambush it)
+static uint8_t deckSafe(const tGame *g) {
+	return g->chop.landed || g->chop.landTimer >= LAND_DELAY || g->uwDeckGrace;
+}
+
+// a jet other than i, committed to the gunship, near the carrier
+static uint8_t jetCommittedNearCarrier(const tGame *g, uint8_t ubSelf) {
+	for(uint8_t k = 0; k < ubSelf; ++k) {
+		const tAir *o = &g->pAir[k];
+		if(o->active && o->kind == AIR_JET && !o->done &&
+			dist((int16_t)(o->x - g->carrier.x), (int16_t)(o->y - g->carrier.y)) < JET_DECK_ZONE) return 1;
+	}
+	return 0;
+}
+
 static void airUpdate(tGame *g, uint8_t ubRadars) {
 	tChopper *c = &g->chop;
+	uint8_t isSafe = deckSafe(g);
 	for(uint8_t i = 0; i < AIR_MAX; ++i) {
 		tAir *a = &g->pAir[i];
 		if(!a->active) continue;
@@ -329,7 +347,10 @@ static void airUpdate(tGame *g, uint8_t ubRadars) {
 		uint8_t ubTurnMask;     // turns when (frame & mask) == 0
 		if(a->kind == AIR_JET) {
 			if(a->uwLife) --a->uwLife;
-			if(!a->uwLife || g->state != GS_PLAY) a->done = 1;
+			if(!a->uwLife || g->state != GS_PLAY || isSafe) a->done = 1;
+			// near the carrier one jet at a time goes for the gunship; the next breaks off
+			else if(!a->done && dist((int16_t)(a->x - g->carrier.x), (int16_t)(a->y - g->carrier.y)) < JET_DECK_ZONE &&
+				jetCommittedNearCarrier(g, i)) a->done = 1;
 			// radar: straight at the gunship; without, it searches
 			tx = c->x;
 			ty = c->y;
@@ -499,7 +520,7 @@ static void cruiserUpdate(tGame *g) {
 		if(k->ubLevel == 2 && k->uwStall >= CRUISER_STALL2) {
 			uint16_t t = (uint16_t)(k->uwStall - CRUISER_STALL2);
 			while(t >= CRUISER_JETS) t = (uint16_t)(t - CRUISER_JETS);
-			if(!t) airSpawnAt(g, AIR_JET, k->x, k->y);   // off its deck, at the gunship
+			if(!t && !deckSafe(g)) airSpawnAt(g, AIR_JET, k->x, k->y);   // off its deck, at the gunship
 		}
 	}
 	int16_t dx = (int16_t)(g->carrier.x - k->x);
@@ -611,13 +632,16 @@ void logicThreat(const tGame *g, uint8_t *pAir, uint8_t *pShots) {
 
 void enemiesUpdate(tGame *g) {
 	uint8_t ubRadars = radarsUp(g);
+	if(g->chop.landed || g->chop.landTimer >= LAND_DELAY) g->uwDeckGrace = JET_DECK_GRACE;
+	else if(g->uwDeckGrace) --g->uwDeckGrace;
 	if(g->state == GS_PLAY) {
 		if(++g->uwAlertClock >= ALERT_TIME_FRAMES) {
 			g->uwAlertClock = 0;
 			if(g->ubAlertTime < ALERT_TIME_MAX) ++g->ubAlertTime;
 		}
 		uint8_t a = logicAlert(g);
-		if(!--g->uwJetTimer) {
+		// (no new jet while the gunship is on deck or just off it)
+		if(!deckSafe(g) && !--g->uwJetTimer) {
 			airSpawn(g, AIR_JET);
 			int16_t t = (int16_t)(JET_EVERY + s_pJetExtra[g->difficulty] + s_pThJet[thIx(g)] - s_pAlertJet[a] + (logicRandom(g) & 255));
 			if(!ubRadars) t = (int16_t)(t + JET_EVERY);
