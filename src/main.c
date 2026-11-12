@@ -111,7 +111,8 @@ static UWORD s_uwTilesDrawn;
 static UBYTE s_isSplash;         // the Desert Palms Software logo is showing
 static UBYTE s_ubAfterSplash;    // frames since it ended (its memory goes after 2)
 static UBYTE s_isReady;
-static UBYTE s_isScoresRead;     // the hall of fame's file has been read (on the splash)
+static UBYTE s_isScoresRead;     // deferredLoad has run
+static void deferredLoad(void);     // the hall of fame's file has been read (on the splash)
 
 // The theatre card (the kit's missionmap): its picture, drawn once per theatre
 // into fast RAM (a static array) when the theatre loads, copied into each frame
@@ -1799,6 +1800,26 @@ static void colorsStatic(void) {
 	for(UBYTE i = 16; i < 32; ++i) g_pCustom->color[i] = s_pColors[i];
 }
 
+// What the first picture doesn't need, read from the floppy once the splash is up (AROS gives
+// the boot 3000 frames to reach "AGK ready", and 1.4 took 2955 of them): the BOBs (20 KB packed)
+// and the hall of fame's file. Nothing draws a BOB or reads the table during the splash.
+static void deferredLoad(void) {
+	bobsCreate();
+	scoresLoad();
+	// Songerson's two modules from the floppy into chip RAM, if they fit with
+	// room to spare (1 MB chip); a 512 KB A500 keeps the game's own songs. (After the
+	// BOBs, as in 1.4, so the same machines have room; the 3.1 s of reading is off the boot.)
+	UBYTE isDog68 = soundMusicLoad(SOUND_MUSIC_DOG68);
+	UBYTE isDog70 = isDog68 && soundMusicLoad(SOUND_MUSIC_DOG70);
+	s_ubModules = (UBYTE)(isDog68 + isDog70);
+	agkState("modules", s_ubModules);
+	agkEnd();
+	rotorCreate(isDog70);
+
+	musicFor(s_sGame.state);
+	agkPerfSkip();
+}
+
 void genericCreate(void) {
 	agkDebugInit();
 	agkPrint("AGK boot rotorraider\n");
@@ -1823,7 +1844,7 @@ void genericCreate(void) {
 	s_pMiniChip = memAllocChipClear(MINI_CHIP_BYTES);
 	chopperCreate();
 	gunsCreate();
-	bobsCreate();
+	// (the BOBs are read from the floppy on the splash's second picture: deferredLoad)
 	msgInit();
 	mmImageInit(&s_sCardImg, s_pCardImg, CARD_W, CARD_H, CARD_PLANES);
 	paletteSet();
@@ -1859,15 +1880,7 @@ void genericCreate(void) {
 	copperBuild(1);
 
 	soundCreate();
-	// Songerson's two modules from the floppy into chip RAM, if they fit with
-	// room to spare (1 MB chip); a 512 KB A500 keeps the game's own songs
-	UBYTE isDog68 = soundMusicLoad(SOUND_MUSIC_DOG68);
-	UBYTE isDog70 = isDog68 && soundMusicLoad(SOUND_MUSIC_DOG70);
-	s_ubModules = (UBYTE)(isDog68 + isDog70);
-	agkState("modules", s_ubModules);
-	agkEnd();
-	rotorCreate(isDog70);
-	musicFor(s_sGame.state);
+	musicFor(s_sGame.state);   // (the modules and the rotor's waves: deferredLoad)
 
 	viewLoad(s_pView);
 	systemUnuse();
@@ -2018,11 +2031,11 @@ void genericProcess(void) {
 			// the hall of fame's file, on the splash's second picture: the floppy work is not part
 			// of the boot (AROS gives the boot 3000 frames to reach "AGK ready")
 			s_isScoresRead = 1;
-			scoresLoad();
-			agkPerfSkip();
+			deferredLoad();
 		}
 		return;
 	}
+	if(!s_isScoresRead) { s_isScoresRead = 1; deferredLoad(); }
 	if(s_ubAfterSplash < 3) agkPerfSkip();   // (the title's first pictures lay everything out)
 	if(s_ubSkipFrames) { --s_ubSkipFrames; agkPerfSkip(); }
 	if(s_ubAfterSplash < 3 && ++s_ubAfterSplash == 2) {
