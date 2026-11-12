@@ -1016,12 +1016,21 @@ static const UBYTE s_pMsgY[MSG_LINES] = {104, 116, 136, 148, 170, 190, 152, 162,
 #define MSG_Y_MAX 206
 _Static_assert(LOGO_Y + LOGO_H + 2 < 152, "the title's text is under the logo");
 static tAgkText s_pMsg[2][MSG_LINES];
-static char s_pMsgStage[2][MSG_LINES][MSG_LEN + 1];
+// A line's characters are written, filled and compared a longword at a time (msgFill,
+// msgSame): byte loops of 40 under six planes of display DMA cost ~15 raster lines a
+// line laid out, and a card ending laid out eight at once (a 100% frame). MSG_ROW keeps
+// every row at an even address, all the 68000 needs for a longword (tAgkText's
+// szShown is at an even offset: the font pointer, 8 plane pointers, a word, 4 bytes).
+#define MSG_ROW (MSG_LEN + 2)
+_Static_assert(MSG_LEN % 4 == 0 && MSG_ROW % 2 == 0, "msgFill: longwords on even rows");
+_Static_assert(__builtin_offsetof(tAgkText, szShown) % 2 == 0 && sizeof(tAgkText) % 2 == 0, "szShown: even");
+typedef ULONG __attribute__((may_alias)) tMsgLong;
+static char s_pMsgStage[2][MSG_LINES][MSG_ROW] __attribute__((aligned(2)));
 static ULONG s_pMsgCover[2][MSG_LINES][2];  // columns (bits) this buffer's BOBs covered last time
 static ULONG s_pMsgFix[2][MSG_LINES][2];    // columns an erase crossed: redraw their letters
 static UBYTE s_pMsgAnyFix[2];
 static UWORD s_pMsgKey[2] = {0xFFFF, 0xFFFF};
-static char s_pMsgTarget[2][MSG_LINES][MSG_LEN + 1];   // what each line is to say
+static char s_pMsgTarget[2][MSG_LINES][MSG_ROW] __attribute__((aligned(2)));   // what each line is to say
 static ULONG s_pMsgPending[2];                          // lines still being typed (bits)
 static ULONG s_pMsgText[2];                             // lines with letters on them (bits)
 static UBYTE s_ubDiskStatus;                            // HI_DISK_*: the hall of fame on the floppy (shown under it)
@@ -1036,11 +1045,25 @@ static void msgInit(void) {
 	}
 }
 
+// MSG_LEN spaces at p (even)
+static inline void msgFill(char *p) {
+	tMsgLong *q = (tMsgLong *)p;
+	for(UBYTE i = 0; i < MSG_LEN / 4; ++i) q[i] = 0x20202020;
+}
+
+// The MSG_LEN characters at a and b (even) are the same
+static inline UBYTE msgSame(const char *a, const char *b) {
+	const tMsgLong *p = (const tMsgLong *)a, *q = (const tMsgLong *)b;
+	for(UBYTE i = 0; i < MSG_LEN / 4; ++i) if(p[i] != q[i]) return 0;
+	return 1;
+}
+
+// szText centred in a line of MSG_LEN at szOut (even), terminated
 static void msgCentre(char *szOut, const char *szText) {
 	UBYTE ubLen = 0;
 	while(szText[ubLen] && ubLen < MSG_LEN) ++ubLen;
 	UBYTE ubPad = (UBYTE)((MSG_LEN - ubLen) >> 1);
-	for(UBYTE i = 0; i < MSG_LEN; ++i) szOut[i] = ' ';
+	msgFill(szOut);
 	for(UBYTE i = 0; i < ubLen; ++i) szOut[ubPad + i] = szText[i];
 	szOut[MSG_LEN] = 0;
 }
@@ -1124,22 +1147,46 @@ __attribute__((noinline, optimize("Os"))) static void scoreRow(char *szOut, UBYT
 	hiRow(szOut, &s_sGame.table, i, i == s_sGame.newRank, logicReachedWord(s->reached), szX);
 }
 
+// What the lines say changes rarely: its key, and they're laid out only when it changes. The
+// hall of fame, the initials and the card have their own (the initials' blink: every picture).
+static UWORD msgKey(const tGame *g, UBYTE ubBfr) {
+	switch(g->state) {
+		case GS_CARD: return (UWORD)(0x8000 | g->theatre | s_pCardLit[ubBfr] << 4);
+		case GS_SCORES: return (UWORD)(0x6000 | s_ubDiskStatus << 4 | g->newRank);
+		case GS_ENTRY: return (UWORD)(0x7000 | (g->frame & 0xFFF));
+		default: return (UWORD)(g->state << 12 | g->steer << 4 | g->theatre << 2 |
+			(g->state == GS_TITLE ? ((g->frame >> 5) & 1) | (titleCreditsPage(g) << 1) : 0));
+	}
+}
+
 // What the lines say (laid out when it changes). Lines that go blank are
 // cleared at once by the blitter (queued before the objects), not typed away.
 __attribute__((noinline)) static void msgPrepare(UBYTE ubBfr) {
 	const tGame *g = &s_sGame;
+	// (the key first: the texts below are built only for a new layout - the card's
+	// took ~15 raster lines every picture it showed)
+	UWORD uwKey = msgKey(g, ubBfr), uwWas = s_pMsgKey[ubBfr];
+	if(uwKey == uwWas) return;
+	s_pMsgKey[ubBfr] = uwKey;
 	const char *pText[MSG_LINES];
 	for(UBYTE l = 0; l < MSG_LINES; ++l) pText[l] = "";
 	char szA[MSG_LEN + 1], szB[MSG_LEN + 1], szC[MSG_LEN + 1];
 	char pRows[HI_COUNT][HI_ROW_LEN + 1];
 	char szH[MSG_LEN + 1], szT[MSG_LEN + 1], szR[THEATRES][MSG_LEN + 1];   // the card's
 	UBYTE n;
-	UWORD uwKeyHall = 0;   // the hall of fame and the initials lay themselves out by their own key
+	ULONG ulKeep = 0;   // lines that stay as they are (not laid out again)
 	switch(g->state) {
 		case GS_CARD: {
 			// THEATRE n OF 3, its name and the brief (outside the picture); once the picture is in
 			// (the copy would wipe them): the route's names beside its nodes, the legend's words by its squares
 			UBYTE isLit = s_pCardLit[ubBfr];
+			if(!isLit && uwWas == (uwKey | 1 << 4)) {
+				// the wipe's last strip took the picture: its words go, the heading, the name and
+				// the brief stay as they are (this is the picture the play starts in: it has no
+				// time to lay them out again - 100% of a frame)
+				ulKeep = 1UL << MSG_CARD | 1UL << (MSG_CARD + 1) | 1UL << (MSG_CARD + 7);
+				break;
+			}
 			mmHeading(szH, MSG_LEN, "THEATRE", (UBYTE)(g->theatre + 1), THEATRES);
 			pText[MSG_CARD] = szH;
 			pText[MSG_CARD + 1] = g_pTheatreName[g->theatre];
@@ -1153,7 +1200,6 @@ __attribute__((noinline)) static void msgPrepare(UBYTE ubBfr) {
 				}
 				pText[MSG_CARD + 6] = "    FACTORY      CARRIER      YOU       ";
 			}
-			uwKeyHall = (UWORD)(0x8000 | g->theatre | isLit << 4);
 		} break;
 		case GS_SCORES:
 			pText[MSG_SCORES] = "HALL OF FAME";
@@ -1162,7 +1208,6 @@ __attribute__((noinline)) static void msgPrepare(UBYTE ubBfr) {
 				pText[MSG_SCORES + 1 + i] = pRows[i];
 			}
 			pText[MSG_SCORES + 6] = g->newRank < HI_COUNT ? hiDiskText(s_ubDiskStatus) : "";
-			uwKeyHall = (UWORD)(0x6000 | s_ubDiskStatus << 4 | g->newRank);
 			break;
 		case GS_ENTRY: {
 			// the initials: up/down a letter, fire the next, the current one blinking
@@ -1181,7 +1226,6 @@ __attribute__((noinline)) static void msgPrepare(UBYTE ubBfr) {
 			szA[2 * HI_NAME - 1] = 0;
 			pText[3] = szA;
 			pText[4] = "UP/DOWN LETTER  FIRE NEXT  LEFT BACK";
-			uwKeyHall = (UWORD)(0x7000 | (g->frame & 0xFFF));   // (a letter, the cursor or the blink: every picture)
 		} break;
 		case GS_TITLE:
 			pText[MSG_TITLE + 0] = "BY PAUL ROSS SEIBERT";
@@ -1218,20 +1262,29 @@ __attribute__((noinline)) static void msgPrepare(UBYTE ubBfr) {
 		default:
 			break;
 	}
-	// what the lines say changes rarely: lay them out only then
-	UWORD uwKey = uwKeyHall ? uwKeyHall : (UWORD)(g->state << 12 | g->steer << 4 | g->theatre << 2 |
-		(g->state == GS_TITLE ? ((g->frame >> 5) & 1) | (titleCreditsPage(g) << 1) : 0));
-	if(uwKey == s_pMsgKey[ubBfr]) return;
-	s_pMsgKey[ubBfr] = uwKey;
 	for(UBYTE l = 0; l < MSG_LINES; ++l) {
-		// (a line blank before and after: its target is blank already)
-		if(!pText[l][0] && !((s_pMsgText[ubBfr] | s_pMsgPending[ubBfr]) & (1UL << l))) continue;
-		msgCentre(s_pMsgTarget[ubBfr][l], pText[l]);
+		ULONG ulBit = 1UL << l;
+		if(ulKeep & ulBit) continue;
+		char *pTarget = s_pMsgTarget[ubBfr][l];
 		if(pText[l][0]) {
-			s_pMsgPending[ubBfr] |= 1UL << l;
-			s_pMsgText[ubBfr] |= 1UL << l;   // (letters to come)
+			char szNew[MSG_ROW] __attribute__((aligned(2)));
+			msgCentre(szNew, pText[l]);
+			// (a line that says this already, typed or being typed: nothing to do - the
+			// card's heading, name and brief when its picture goes)
+			if((s_pMsgText[ubBfr] & ulBit) && msgSame(pTarget, szNew)) continue;
+			tMsgLong *pTo = (tMsgLong *)pTarget;
+			const tMsgLong *pFrom = (const tMsgLong *)szNew;
+			for(UBYTE i = 0; i < MSG_LEN / 4; ++i) pTo[i] = pFrom[i];
+			pTarget[MSG_LEN] = 0;
+			s_pMsgPending[ubBfr] |= ulBit;
+			s_pMsgText[ubBfr] |= ulBit;   // (letters to come)
+			continue;
 		}
-		else if(s_pMsgText[ubBfr] & (1UL << l)) {
+		// (a line blank before and after: its target is blank already)
+		if(!((s_pMsgText[ubBfr] | s_pMsgPending[ubBfr]) & ulBit)) continue;
+		msgFill(pTarget);
+		pTarget[MSG_LEN] = 0;
+		if(s_pMsgText[ubBfr] & ulBit) {
 			// blank now: one blit clears the line (and its shadow row)
 			tAgkBlitArea sArea = {
 				.pD = s_pFb[ubBfr]->Planes[0] + s_pFbRowOffs[s_pMsgY[l]] + FB_X0 / 8,
@@ -1246,10 +1299,10 @@ __attribute__((noinline)) static void msgPrepare(UBYTE ubBfr) {
 			// went in a picture before its old lines were cleared - and every
 			// other picture lacked the logo's lower half
 			if(s_pLogoShown[ubBfr] && s_pMsgY[l] < LOGO_Y + LOGO_H) s_pLogoShown[ubBfr] = 0;
-			tAgkText *pT = &s_pMsg[ubBfr][l];
-			for(UBYTE c = 0; c < MSG_LEN; ++c) s_pMsgStage[ubBfr][l][c] = pT->szShown[c] = ' ';
-			s_pMsgPending[ubBfr] &= ~(1UL << l);
-			s_pMsgText[ubBfr] &= ~(1UL << l);
+			msgFill(s_pMsgStage[ubBfr][l]);
+			msgFill(s_pMsg[ubBfr][l].szShown);
+			s_pMsgPending[ubBfr] &= ~ulBit;
+			s_pMsgText[ubBfr] &= ~ulBit;
 			s_pMsgFix[ubBfr][l][0] = s_pMsgFix[ubBfr][l][1] = 0;
 		}
 	}
