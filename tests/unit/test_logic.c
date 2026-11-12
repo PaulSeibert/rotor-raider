@@ -1387,6 +1387,47 @@ static void testScoreMakesTheHallOfFame(void) {
 	CHECK(g.table.pEntries[2].score == 4500);
 }
 
+// The initials typed on the Amiga keyboard (a DPS requirement): raw keycodes
+// in tInput.key (+ 1: 0 is no key), alone or with the stick
+#define KEYIN(raw) ((tInput){.key = INPUT_KEY(raw)})
+static void testInitialsTyped(void) {
+	endGameWith(4500, 1, GS_OVER);
+	CHECK(g.state == GS_ENTRY && g.newRank == 2);
+	step(KEYIN(0x19), 1);                           // P
+	step(NONE, 1);
+	step(KEYIN(0x13), 1);                           // R
+	CHECK(g.state == GS_ENTRY && g.edit.ubPos == 2);
+	step(KEYIN(0x21), 1);                           // S: the third place ends it
+	CHECK(g.state == GS_SCORES && g.scoresChanged);
+	CHECK(memcmp(g.table.pEntries[2].name, "PRS", 3) == 0 && g.table.pEntries[2].score == 4500);
+	// Backspace, Space, a digit; the stick in between; Space is a space (not fire)
+	endGameWith(4500, 1, GS_OVER);
+	step(KEYIN(0x19), 1);                           // P
+	step(KEYIN(0x37), 1);                           // M
+	step(KEYIN(HI_KEY_BACKSPACE), 1);               // takes the M back
+	CHECK(g.edit.ubPos == 1 && g.table.pEntries[2].name[1] == ' ');
+	step(KEYIN(HI_KEY_SPACE), 1);                   // a space
+	CHECK(g.edit.ubPos == 2 && g.state == GS_ENTRY);
+	step((tInput){.dy = -1}, 1);                    // the stick: the third place, space -> A
+	step(NONE, 1);
+	step(KEYIN(0x04), 1);                           // 4 over it: done
+	CHECK(g.state == GS_SCORES && memcmp(g.table.pEntries[2].name, "P 4", 3) == 0);
+	// Return confirms early; the places not reached stay as they were
+	endGameWith(4500, 1, GS_OVER);
+	step(KEYIN(0x10), 1);                           // Q
+	step(KEYIN(HI_KEY_RETURN), 1);
+	CHECK(g.state == GS_SCORES && g.scoresChanged && memcmp(g.table.pEntries[2].name, "Q  ", 3) == 0);
+	// a key that is not a letter does nothing, but restarts the 30 s
+	endGameWith(4500, 1, GS_OVER);
+	step(NONE, HI_EDIT_FRAMES - 1);
+	CHECK(g.state == GS_ENTRY);
+	step(KEYIN(0x60), 1);                           // Shift
+	step(NONE, HI_EDIT_FRAMES - 2);
+	CHECK(g.state == GS_ENTRY && g.edit.ubPos == 0);
+	step(NONE, 2);
+	CHECK(g.state == GS_SCORES && memcmp(g.table.pEntries[2].name, "A  ", 3) == 0);
+}
+
 static void testHallTimesOut(void) {
 	// the table leaves by itself after SCORES_FRAMES
 	endGameWith(4500, 0, GS_OVER);
@@ -1840,6 +1881,7 @@ int main(void) {
 	testReloadAndRepairPrompts();
 	testHallDefaults();
 	testScoreMakesTheHallOfFame();
+	testInitialsTyped();
 	testHallTimesOut();
 	testVictoryReachesAll();
 	testGodmodeNeverCounts();

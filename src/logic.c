@@ -1026,7 +1026,8 @@ void logicUpdate(tGame *g, const tInput *pIn) {
 			if(!g->stateTimer || (pIn->fire && g->stateTimer < OVER_FRAMES - SCORES_SKIP)) gameEnded(g);
 			break;
 		case GS_ENTRY:
-			// the initials (up/down a letter, fire the next, left back one): then the table, saved
+			// the initials, typed (hiEditKey) or with the stick (up/down a letter, fire the next, left back one): then the table, saved
+			hiEditKey(&g->edit, &g->table, pIn->key ? (uint8_t)(pIn->key - 1) : HI_KEY_NONE);
 			if(hiEditUpdate(&g->edit, &g->table, pIn->dx, pIn->dy, pIn->fire)) {
 				g->scoresChanged = 1;
 				g->titleArmed = 0;

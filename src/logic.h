@@ -98,7 +98,9 @@ uint8_t theatreParse(uint8_t *pData, uint32_t ulSize, tTheatre *pOut);
 typedef struct {
 	int8_t dx, dy;             // -1, 0, 1
 	uint8_t fire, fire2;       // held
+	uint8_t key;               // the initials' typed key: its raw keycode + 1 (INPUT_KEY), 0 none
 } tInput;
+#define INPUT_KEY(raw) ((uint8_t)((raw) + 1))   // (0 stays "no key": a zeroed tInput types nothing)
 
 enum { STEER_CLASSIC, STEER_ARCADE };
 

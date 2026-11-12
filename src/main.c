@@ -1210,7 +1210,7 @@ __attribute__((noinline)) static void msgPrepare(UBYTE ubBfr) {
 			pText[MSG_SCORES + 6] = g->newRank < HI_COUNT ? hiDiskText(s_ubDiskStatus) : "";
 			break;
 		case GS_ENTRY: {
-			// the initials: up/down a letter, fire the next, the current one blinking
+			// the initials, typed or with the stick (up/down a letter, fire the next), the current one blinking
 			const tHiScore *s = &g->table.pEntries[g->newRank];
 			n = 0; strCat(szB, &n, "RANK 1   ");
 			szB[5] = (char)('1' + g->newRank);
@@ -1225,7 +1225,7 @@ __attribute__((noinline)) static void msgPrepare(UBYTE ubBfr) {
 			}
 			szA[2 * HI_NAME - 1] = 0;
 			pText[3] = szA;
-			pText[4] = "UP/DOWN LETTER  FIRE NEXT  LEFT BACK";
+			pText[4] = "TYPE OR USE THE STICK  RETURN: DONE";
 		} break;
 		case GS_TITLE:
 			pText[MSG_TITLE + 0] = "BY PAUL ROSS SEIBERT";
@@ -1773,6 +1773,7 @@ static const UBYTE s_pDigitKeys[6] = {KEY_0, KEY_1, KEY_2, KEY_3, KEY_4, KEY_5};
 static UBYTE s_ubKeysLatched, s_ubDigitLatched;   // KL_*; the digit + 1 (0: none)
 
 static void keysLatch(void) {
+	if(s_sGame.state == GS_ENTRY) return;   // (typing the initials: P, M, 9, E... are letters then, not the game's keys)
 	if(keyUse(KEY_P)) s_ubKeysLatched |= KL_PAUSE;
 	if(keyUse(KEY_M)) s_ubKeysLatched |= KL_MUSIC;
 	if(keyCheck(KEY_CONTROL) && keyUse(KEY_L)) s_ubKeysLatched |= KL_SKILL;
@@ -1783,6 +1784,14 @@ static void keysLatch(void) {
 }
 
 static void skillKeys(void) {
+	if(s_sGame.state == GS_ENTRY) {
+		// the initials are being typed: whatever was latched a picture ago (the entry began in this
+		// one) and a Ctrl+L still waiting are not for the game
+		s_ubKeysLatched = 0;
+		s_ubDigitLatched = 0;
+		s_ubSkillKeyWait = 0;
+		return;
+	}
 	UBYTE ubKeys = s_ubKeysLatched, ubDigit = s_ubDigitLatched;
 	s_ubKeysLatched &= (UBYTE)~(KL_SKILL | KL_JUMP | KL_HISCORE | KL_END);
 	s_ubDigitLatched = 0;
@@ -1825,12 +1834,23 @@ static void skillKeys(void) {
 // ---------------------------------------------------------------- setup ---
 
 static void readInput(tInput *pIn) {
+	static UBYTE s_isEntryWas;
+	UBYTE isEntry = s_sGame.state == GS_ENTRY;
+	pIn->key = 0;
+	if(isEntry) {
+		// the initials: typed keys (one a picture) as well as the stick
+		if(!s_isEntryWas) hiKeyFlush();   // (a key still down from the game, a bomb: not a first letter)
+		UBYTE ubKey = hiKeyPoll();
+		if(ubKey != HI_KEY_NONE) pIn->key = INPUT_KEY(ubKey);
+	}
+	s_isEntryWas = isEntry;
 	pIn->dx = (joyCheck(JOY1 + JOY_LEFT) || keyCheck(KEY_LEFT)) ? -1 :
 		(joyCheck(JOY1 + JOY_RIGHT) || keyCheck(KEY_RIGHT)) ? 1 : 0;
 	pIn->dy = (joyCheck(JOY1 + JOY_UP) || keyCheck(KEY_UP)) ? -1 :
 		(joyCheck(JOY1 + JOY_DOWN) || keyCheck(KEY_DOWN)) ? 1 : 0;
-	pIn->fire = joyCheck(JOY1 + JOY_FIRE) || keyCheck(KEY_SPACE);
-	pIn->fire2 = joyCheck(JOY1 + JOY_FIRE2) || keyCheck(KEY_B);
+	// (in the entry Space is a space and B a letter: only the stick fires)
+	pIn->fire = joyCheck(JOY1 + JOY_FIRE) || (!isEntry && keyCheck(KEY_SPACE));
+	pIn->fire2 = joyCheck(JOY1 + JOY_FIRE2) || (!isEntry && keyCheck(KEY_B));
 }
 
 static void paletteSet(void) {
@@ -2067,7 +2087,7 @@ void genericProcess(void) {
 	s_ulFrameVbl = timerGet();
 	keyProcess();
 	joyProcess();
-	if(keyCheck(KEY_ESCAPE)) {
+	if(keyCheck(KEY_ESCAPE) && s_sGame.state != GS_ENTRY) {   // (not while the initials are typed)
 		gameExit();
 		return;
 	}
@@ -2092,9 +2112,13 @@ void genericProcess(void) {
 		splashDestroy();   // (ACE's memFree asks the OS: a few frames, once)
 		agkPerfSkip();
 	}
-	if((s_ubKeysLatched & KL_PAUSE) && s_sGame.state == GS_PLAY) s_isPaused = !s_isPaused;
+	if((s_ubKeysLatched & KL_PAUSE) && s_sGame.state == GS_PLAY) {
+		s_isPaused = !s_isPaused;
+		agkPrint(s_isPaused ? "AGK paused\n" : "AGK resumed\n");   // (tests/initials.agk: typing P in the entry mustn't)
+	}
 	if(s_ubKeysLatched & KL_MUSIC) {
 		s_isMusicOn = !s_isMusicOn;
+		agkPrint(s_isMusicOn ? "AGK music switched on\n" : "AGK music switched off\n");
 		musicFor(s_sGame.state);
 	}
 	s_ubKeysLatched &= (UBYTE)~(KL_PAUSE | KL_MUSIC);
