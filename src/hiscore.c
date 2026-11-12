@@ -104,6 +104,7 @@ HI_COLD void hiEditBegin(tHiEdit *pE, uint8_t ubRank, uint16_t uwFrames) {
 	pE->isFireWas = 1;     // (fire held from the end screen doesn't choose a letter)
 	pE->isLeftWas = 0;
 	pE->uwLeft = uwFrames;
+	pE->uwFrames = uwFrames;
 }
 
 HI_COLD uint8_t hiEditUpdate(tHiEdit *pE, tHiTable *pT, int8_t dx, int8_t dy, uint8_t isFire) {
@@ -137,6 +138,40 @@ HI_COLD uint8_t hiEditUpdate(tHiEdit *pE, tHiTable *pT, int8_t dx, int8_t dy, ui
 		pE->ubPos = HI_NAME;
 		return 1;
 	}
+	return 0;
+}
+
+// What each raw keycode 0x00-0x40 types (0: nothing). Upper case; the same
+// key with or without Shift is the same code.
+static const char s_pKeyChars[0x41] = {
+	0, '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', 0, 0, 0, 0, '0',             // 0x00: ` 1-9 0 - = backslash, none, keypad 0
+	'Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P', 0, 0, 0, '1', '2', '3',         // 0x10: row 1, [ ], (none), keypad 1-3
+	'A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L', 0, 0, 0, 0, '4', '5', '6',           // 0x20: row 2, ; ' #, (none), keypad 4-6
+	0, 'Z', 'X', 'C', 'V', 'B', 'N', 'M', 0, 0, 0, 0, 0, '7', '8', '9',               // 0x30: < row 3 , . /, (none), keypad 7-9
+	' ',                                                                              // 0x40: Space
+};
+
+HI_COLD char hiKeyChar(uint8_t ubRawKey) {
+	return ubRawKey < sizeof(s_pKeyChars) ? s_pKeyChars[ubRawKey] : 0;
+}
+
+HI_COLD uint8_t hiEditKey(tHiEdit *pE, tHiTable *pT, uint8_t ubRawKey) {
+	if(pE->ubPos >= HI_NAME) return 1;
+	if(ubRawKey == HI_KEY_NONE) return 0;
+	pE->uwLeft = pE->uwFrames;                     // any key restarts the timeout
+	tHiScore *s = &pT->pEntries[pE->ubRank];
+	if(ubRawKey == HI_KEY_RETURN || ubRawKey == HI_KEY_NUMENTER) {
+		pE->ubPos = HI_NAME;
+		return 1;
+	}
+	if(ubRawKey == HI_KEY_BACKSPACE) {
+		if(pE->ubPos) s->name[--pE->ubPos] = ' ';
+		return 0;
+	}
+	char c = hiKeyChar(ubRawKey);
+	if(!c) return 0;
+	s->name[pE->ubPos] = c;
+	if(++pE->ubPos >= HI_NAME) return 1;
 	return 0;
 }
 

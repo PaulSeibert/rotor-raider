@@ -9,7 +9,7 @@
  *     factories destroyed...), best first; an equal score ranks below;
  *   - the file: HI_BYTES, big-endian, a 4-byte magic and a 16-bit checksum;
  *     an unpack that fails changes nothing (the game keeps its defaults);
- *   - the initials: a joystick editor with a timeout;
+ *   - the initials: a joystick and keyboard editor with a timeout;
  *   - the table screen's lines: hiRow();
  *   - invincible (test) games and the demo never rank: hiQualify().
  *
@@ -91,6 +91,7 @@ typedef struct {
 	uint8_t ubHold;                // up/down held: frames to the next letter
 	uint8_t isFireWas, isLeftWas;  // last frame's fire and left (edges)
 	uint16_t uwLeft;               // frames to the timeout
+	uint16_t uwFrames;             // the timeout again: a key restarts it
 } tHiEdit;
 
 /** Start editing entry ubRank (from hiInsert). Fire held from the end screen
@@ -102,6 +103,29 @@ void hiEditBegin(tHiEdit *pE, uint8_t ubRank, uint16_t uwFrames);
  *  back one. Returns 1 once the name is done (the last letter chosen, or the
  *  timeout: the letters as they are). */
 uint8_t hiEditUpdate(tHiEdit *pE, tHiTable *pT, int8_t dx, int8_t dy, uint8_t isFire);
+
+// Keyboard entry: Amiga raw keycodes (the key's place on the keyboard: the
+// same with Shift held or not, so shifted and unshifted letters both work).
+// ACE's KEY_* have the same values; this file doesn't include ACE (host tests).
+#define HI_KEY_NONE 0xFF           // no key this frame
+#define HI_KEY_SPACE 0x40
+#define HI_KEY_BACKSPACE 0x41
+#define HI_KEY_NUMENTER 0x43
+#define HI_KEY_RETURN 0x44
+
+/** The character a raw keycode types: 'A'-'Z', '0'-'9' (the row of digits and
+ *  the numeric keypad) or ' ' for Space; 0 for any other key (and for a code
+ *  with the release bit, or HI_KEY_NONE). Letters are upper case. */
+char hiKeyChar(uint8_t ubRawKey);
+
+/** One key press (not a release; HI_KEY_NONE for none) in the entry: a
+ *  character goes in at the cursor and the cursor moves on (the third ends the
+ *  entry, as fire does on the last place); Backspace blanks the place before
+ *  and moves back; Return (or the keypad's Enter) ends the entry with the
+ *  places not reached as they are. Any other key does nothing but still
+ *  restarts the timeout, like every key. Returns 1 once the entry is done. The
+ *  stick (hiEditUpdate) and the keys can be mixed in the same entry. */
+uint8_t hiEditKey(tHiEdit *pE, tHiTable *pT, uint8_t ubRawKey);
 
 // --------------------------------------------------------------- display ---
 
@@ -131,6 +155,17 @@ const char *hiDiskText(uint8_t ubStatus);
 // disk is found with Info() before anything is written; requesters are off
 // (ACE sets pr_WindowPtr to -1), so a missing, full or protected disk is a
 // status, never a requester waiting for a click nobody can see.
+//
+// hiscore_keys.c: reading the keyboard for hiEditKey through ACE's key manager.
+
+/** The next key pressed since the last call (its raw keycode), or HI_KEY_NONE.
+ *  One per call (call it once a frame while the entry is up; further keys wait
+ *  their turn). Needs keyCreate() and keyProcess() as usual. */
+uint8_t hiKeyPoll(void);
+
+/** Forget the keys already down or waiting: call it when the entry begins, so
+ *  a key held from the game (B, a bomb) isn't typed as the first letter. */
+void hiKeyFlush(void);
 
 /** Read the table from the game's directory into pT. HI_DISK_LOADED, or
  *  HI_DISK_DEFAULT (no file, a short one or an invalid one: pT is untouched,
