@@ -2046,8 +2046,9 @@ __attribute__((noinline)) static void reportState(void) {
 		agkState("alert", logicAlert(g));
 		agkEnd();
 	}
-	else if((g->frame & 15) == 8) {
-		// the pacing counts (tools/pace.py), half-way between: serial text costs frame time
+	else if((g->frame & 15) == 10) {
+		// the pacing counts (tools/pace.py), between: serial text costs frame time, so not on
+		// a 4th picture (frame & 3 == 0), where the state line and the factories' repairs are
 		UBYTE ubTA, ubTS;
 		logicThreat(g, &ubTA, &ubTS);
 		agkState("pace frame", g->frame);

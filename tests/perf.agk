@@ -1,8 +1,9 @@
 # Frame budget: a fight by a factory (GODMODE keeps it going): turrets' flak,
-# jets, boats, bombs and explosions, the scroller. The average is 45-55%; the
-# worst game frame (~87%) is a bomb landing on a factory: the blast, the
-# factory's tiles, the fireball and new flak in one picture; the switch from
-# the title to the game reaches ~93% for a picture or two. None is dropped.
+# jets, boats, bombs and explosions, the scroller. The average is 55-75% (A500);
+# the worst game frames (~93%) are a bomb landing on a factory (the blast, the
+# factory's tiles, the fireball, the sound starting) and a scroll column with
+# the serial state line at dusk; the theatre card's last picture, where the play
+# starts, ~85%. None is dropped. (1.5 before the fix: 100% on both.)
 wait-serial "AGK t0" 3000   # (the floppy loads run after the splash: seconds)
 wait 10
 press fire 2
