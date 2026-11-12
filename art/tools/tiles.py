@@ -1,351 +1,463 @@
 #!/usr/bin/env python3
-"""ROTOR RAIDER's terrain tiles (PF2, 16x16, 8 pens), drawn by rules - no
-hand-placed pixels. Writes art/tiles.txt (text art, one frame per tile) and
-art/tile_pal.txt (the theatre-1 palette; the copper loads each island band's
-own colours at run time, so the pens mean the same thing everywhere):
+"""ROTOR RAIDER's terrain tiles (PF2, 16x16, 8 pens), drawn by rules (art pilot 2026: lit
+from the top-left, clustered crowns with cast shadows, banded and dithered coasts that sample
+the land and sea tiles by coordinate, a hand-built factory). Same pens and the same 77 tile
+numbers as before (logic.h's TILE_*):
 
-    0  deep water (COLOR00, behind both playfields)
-    1  wave crest (colour-cycled: the sea glitters)
-    2  shallow water
-    3  surf / foam
-    4  beach
-    5  land
-    6  land, dark (trees, rocks, shadow)
-    7  bright (concrete, roofs, lights)
+    0  deep water (COLOR00, behind both playfields)   4  beach / sunlit / roads
+    1  wave crest (colour-cycled: the sea glitters)    5  land
+    2  shallow water                                   6  land, dark (shadow, canopy, eaves)
+    3  surf / concrete / stone                         7  bright (lit edges, roofs)
 
-Tile numbers are fixed (logic.h's TILE_* mirror them):
-     0-15  coast by corner mask (bit 0 top-left, 1 top-right, 2 bottom-left,
-           3 bottom-right = land): 0 open sea, 15 plain land
-    16-19  open sea variants (wave crests)
-    20-27  land variants (scrub, forest, rocks)
-    28-36  factory, intact (3x3, row by row); 37-45 damaged; 46-54 destroyed
-    55/56  AA turret / its crater;  57/58  radar station / its crater
-    59-66  shipyard (4x2);  67-71  airstrip (5x1, friendly: a helipad first)
-    72/73  road east-west / north-south;  74/75  pier east-west / north-south
-    76     crater
+     0-15  coast by corner mask (bit 0 top-left .. 3 bottom-right = land): 0 open sea, 15 plain land
+    16-19  open sea;  20-27 land (3 grass, 3 forest, 2 rocks);  28-36 / 37-45 / 46-54 factory
+    55/56 AA turret pit / crater;  57/58 radar / crater;  59-66 shipyard 4x2;  67-71 airstrip 5x1
+    72/73 road east-west / north-south;  74/75 pier east-west / north-south;  76 crater
 
     python3 art/tools/tiles.py
 """
 import math
 import os
 import random
+import struct
+import zlib
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ART = os.path.join(HERE, '..')
+
 T = 16
-PENS = '01234567'
-PAL = ['0x026', '0x6CE', '0x29B', '0xDDD', '0xEC8', '0x6A3', '0x352', '0xFFE']
-NAMES = ['deep water', 'wave crest', 'shallow', 'surf', 'beach', 'land', 'land dark', 'bright']
 
 
-def blank(p=0):
+def grid(p=5):
     return [[p] * T for _ in range(T)]
 
 
-def coast(mask, seed):
-    """Land field from the four corners (bilinear), plus noise that's zero on
-    the tile's edges, so neighbours always meet."""
+def wrap_put(g, x, y, p):
+    g[y % T][x % T] = p
+
+
+def crown(g, cx, cy, r, wrap=True, rnd=None):
+    """a tree crown / bush: dark rim, lit top-left, cast shadow down-right (pen 6)"""
+    pts = []
+    R = int(r) + 2
+    for dy in range(-R, R + 2):
+        for dx in range(-R, R + 2):
+            x, y = cx + dx, cy + dy
+            d = math.hypot(dx, dy)
+            ds = math.hypot(dx - 1.2, dy - 1.2)
+            if d <= r:
+                l = -(dx * 0.6 + dy * 0.8) / max(r, 1)
+                p = 4 if (l > 0.45 and d < r - 0.6) else 5 if l > -0.1 else 6
+                if d > r - 0.7 and l <= 0.2:
+                    p = 6
+                pts.append((x, y, p))
+            elif ds <= r:
+                pts.append((x, y, 6))           # the shadow on the ground
+    for x, y, p in sorted(pts, key=lambda t: 0 if t[2] == 6 and True else 1):
+        if wrap:
+            wrap_put(g, x, y, p)
+        elif 0 <= x < T and 0 <= y < T:
+            g[y][x] = p
+
+
+def land_base(seed=1):
     rnd = random.Random(seed)
-    c = [(mask >> i) & 1 for i in range(4)]       # tl, tr, bl, br
-    waves = [(rnd.uniform(0.5, 2.0), rnd.uniform(0.5, 2.0), rnd.uniform(0, 6.28)) for _ in range(3)]
-    g = blank()
+    g = grid(5)
+    # grass grain: short dark strokes in clusters, never single noise pixels
+    for _ in range(4):
+        x, y = rnd.randrange(T), rnd.randrange(T)
+        wrap_put(g, x, y, 6); wrap_put(g, x + 1, y, 6)
+        if rnd.random() < 0.5:
+            wrap_put(g, x + 1, y - 1, 4)
+    crown(g, rnd.randrange(T), rnd.randrange(T), 1.2, rnd=rnd)
+    return g
+
+
+def land_variant(base, seed, n=2, r=(1.4, 2.2)):
+    rnd = random.Random(seed)
+    g = [row[:] for row in base]
+    for _ in range(n):
+        crown(g, rnd.randrange(4, 12), rnd.randrange(4, 11), rnd.uniform(*r), wrap=False, rnd=rnd)
+    return g
+
+
+def forest(seed):
+    rnd = random.Random(seed)
+    g = [row[:] for row in LAND]
+    # crowns on a jittered 3x3 lattice (wrapping): dense in the middle, gaps of grass at
+    # the edges, so a forest tile next to a land tile has no hard square edge
+    cs = [(i * 8 + rnd.randrange(0, 4), j * 8 + rnd.randrange(0, 4), rnd.uniform(3.0, 3.8))
+          for j in range(2) for i in range(2)] + [(rnd.randrange(T), rnd.randrange(T), 2.2)]
+    for cx, cy, r in cs:
+        crown(g, cx, cy, r)
+    return g
+
+
+def rocks(base, seed):
+    """two or three boulders: dark rim, grey body (pen 3), bright cap top-left, shadow down-right"""
+    rnd = random.Random(seed)
+    g = [row[:] for row in base]
+    spots = [(5, 5, 2.6), (10, 9, 2.0), (5, 11, 1.6)]
+    for cx, cy, r in spots[:rnd.choice((2, 3))]:
+        cx += rnd.uniform(-0.5, 0.5); cy += rnd.uniform(-0.5, 0.5)
+        for y in range(T):
+            for x in range(T):
+                dx, dy = x + 0.5 - cx, y + 0.5 - cy
+                d = math.hypot(dx, dy); ds = math.hypot(dx - 1.3, dy - 1.3)
+                if d <= r:
+                    l = -(dx * 0.6 + dy * 0.8) / r
+                    g[y][x] = 6 if d > r - 0.8 and l < 0.3 else 7 if l > 0.75 else 4
+                elif ds <= r and g[y][x] not in (4, 7):
+                    g[y][x] = 6
+    return g
+
+
+def sea(seed, crests=3):
+    rnd = random.Random(seed)
+    g = grid(0)
+    for k in range(crests):
+        x, y = rnd.randrange(T), rnd.randrange(T)
+        n = rnd.choice((3, 4))
+        p = 1                      # open sea: pens 0 and 1 only (shared by every band: the copper switch lines lie in it)
+        wrap_put(g, x, y + 1, p)
+        for i in range(1, n - 1):
+            wrap_put(g, x + i, y, p)
+        wrap_put(g, x + n - 1, y + 1, p)
+    return g
+
+
+LAND = land_base(7)
+SEA = sea(200, 2)
+
+
+def coast(mask, seed):
+    """corner-mask coast (bit 0 tl, 1 tr, 2 bl, 3 br = land), bands deep > shallow (dithered) >
+    surf (broken foam) > beach > land; land and sea pixels sample the base tiles at the same
+    coordinates so every coast tile meets every land / sea tile seamlessly."""
+    rnd = random.Random(seed)
+    c = [(mask >> i) & 1 for i in range(4)]
+    waves = [(rnd.uniform(0.6, 1.6), rnd.uniform(0.6, 1.6), rnd.uniform(0, 6.28)) for _ in range(3)]
+    g = grid(0)
     for y in range(T):
         for x in range(T):
             u, v = (x + 0.5) / T, (y + 0.5) / T
-            f = (c[0] * (1 - u) * (1 - v) + c[1] * u * (1 - v) + c[2] * (1 - u) * v + c[3] * u * v)
+            f = c[0] * (1 - u) * (1 - v) + c[1] * u * (1 - v) + c[2] * (1 - u) * v + c[3] * u * v
             env = math.sin(math.pi * u) * math.sin(math.pi * v)
-            n = sum(math.sin(a * x + b * y + p) for a, b, p in waves) / 3
-            f += 0.18 * env * n
-            if f < 0.22:
-                p = 0
-            elif f < 0.40:
+            f += 0.16 * env * sum(math.sin(a * x + b * y + p) for a, b, p in waves) / 3
+            if f < 0.17:
+                p = SEA[y][x]
+            elif f < 0.22:
+                p = 2 if (x + y) % 2 == 0 else 0          # dithered drop-off into the deep
+            elif f < 0.37:
                 p = 2
+            elif f < 0.44:
+                p = 3 if ((x * 3 + y * 5) % 7) else 2      # broken foam line
             elif f < 0.47:
                 p = 3
-            elif f < 0.58:
+            elif f < 0.57:
                 p = 4
+            elif f < 0.62:
+                p = 4 if (x + y) % 2 else LAND[y][x]       # dithered beach edge
             else:
-                p = 5
-                if f > 0.75 and rnd.random() < 0.12:
-                    p = 6
+                p = LAND[y][x]
             g[y][x] = p
     return g
 
 
-def sea(seed):
-    """open sea: wave crests, some glittering (pen 1, colour-cycled by the
-    copper), some steady foam (pen 3)"""
-    rnd = random.Random(seed)
-    g = blank()
-    for k in range(3):
-        x, y, n = rnd.randrange(T - 4), rnd.randrange(T), rnd.randrange(2, 5)
-        for i in range(n):
-            g[y][x + i] = 3 if k == 0 else 1
-    return g
-
-
-def land(kind, seed):
-    rnd = random.Random(seed)
-    g = blank(5)
-    for y in range(T):
-        for x in range(T):
-            if rnd.random() < 0.10:
-                g[y][x] = 6
-    if kind == 'forest':
-        for _ in range(5):
-            cx, cy, r = rnd.uniform(2, 14), rnd.uniform(2, 14), rnd.uniform(2.0, 3.6)
-            for y in range(T):
-                for x in range(T):
-                    d = math.hypot(x - cx, y - cy)
-                    if d < r:
-                        g[y][x] = 6
-                    if d < r * 0.45 and x < cx and y < cy:
-                        g[y][x] = 4          # sunlit crown
-    elif kind == 'rocks':
-        for _ in range(4):
-            cx, cy = rnd.randrange(2, 14), rnd.randrange(2, 14)
-            for dy in range(-1, 2):
-                for dx in range(-1, 2):
-                    g[cy + dy][cx + dx] = 6
-            g[cy - 1][cx - 1] = 7
-    return g
-
-
-def canvas(w, h, seed, p=5):
-    """land of w x h px with a little texture"""
-    rnd = random.Random(seed)
-    return [[6 if rnd.random() < 0.08 else p for _ in range(w)] for _ in range(h)]
-
-
-def fill(g, x0, y0, x1, y1, p):
-    for y in range(y0, y1):
-        for x in range(x0, x1):
-            g[y][x] = p
-
-
-def box(g, x0, y0, x1, y1, face, edge=6, light=7):
-    """a block seen from above, lit from the top-left: light edges top and
-    left, shadow right and below"""
-    fill(g, x0, y0, x1, y1, face)
-    for x in range(x0, x1):
-        g[y0][x] = light
-    for y in range(y0, y1):
-        g[y][x0] = light
-        g[y][x1 - 1] = edge
-    for x in range(x0, x1):
-        g[y1 - 1][x] = edge
-    # the cast shadow on the ground, down-right
-    for y in range(y0 + 2, min(len(g), y1 + 2)):
-        for x in range(x1, min(len(g[0]), x1 + 2)):
-            g[y][x] = 6
-    for x in range(x0 + 2, min(len(g[0]), x1 + 2)):
-        for y in range(y1, min(len(g), y1 + 2)):
-            g[y][x] = 6
-
-
-def disc(g, cx, cy, r, p, rim=None):
-    for y in range(len(g)):
-        for x in range(len(g[0])):
-            d = math.hypot(x + 0.5 - cx, y + 0.5 - cy)
-            if d <= r:
+# ------------------------------------------------------------------ factory (from the AI raw)
+def factory_from_raw():
+    """hand-built (layout after the rd_pro factory4 thumbnail): a fenced concrete yard, a long
+    hall with a corrugated roof, a sawtooth shed, two stacks, three tanks, crates; lit from the
+    top-left, 2-px cast shadows down-right, the land ring outside sampled from the land tile"""
+    g = [[LAND[y % T][x % T] for x in range(48)] for y in range(48)]
+    def rect(x0, y0, x1, y1, p):
+        for y in range(y0, y1):
+            for x in range(x0, x1):
                 g[y][x] = p
-                if rim is not None and d > r - 1.2:
-                    g[y][x] = rim
+    def shadow(x0, y0, x1, y1, d=2):
+        for y in range(y0 + d, y1 + d):
+            for x in range(x0 + d, x1 + d):
+                if 0 <= x < 48 and 0 <= y < 48 and not (x0 <= x < x1 and y0 <= y < y1):
+                    g[y][x] = 6
+    def disc(cx, cy, r, body=3, rim=6, hole=None):
+        for y in range(48):
+            for x in range(48):
+                dx, dy = x + 0.5 - cx, y + 0.5 - cy
+                d = math.hypot(dx, dy)
+                if d <= r:
+                    l = -(dx * 0.6 + dy * 0.8) / r
+                    g[y][x] = rim if (d > r - 0.9 and l < 0.2) else 7 if l > 0.5 else body
+                    if hole and d < hole:
+                        g[y][x] = 6
+                elif math.hypot(dx - 1.5, dy - 1.5) <= r and g[y][x] not in (3, 7):
+                    g[y][x] = 6
+    # the yard
+    rect(2, 2, 46, 46, 4)
+    for i in range(2, 46):
+        g[2][i] = g[i][2] = 7
+        g[45][i] = g[i][45] = 6
+    for i in range(4, 44, 3):            # fence posts' shadows
+        g[46][i] = g[i][46] = 6
+    # the main hall: corrugated roof (rows of light/mid), dark eaves
+    shadow(5, 5, 33, 22); rect(5, 5, 33, 22, 3)
+    for y in range(6, 21):
+        for x in range(6, 32):
+            g[y][x] = 7 if (y % 2 == 0) else 3
+    for x in range(5, 33):
+        g[5][x] = 7; g[21][x] = 6
+    for y in range(5, 22):
+        g[y][5] = 7; g[y][32] = 6
+    for x in range(6, 32):               # the ridge
+        g[13][x] = 6 if x % 4 else 3
+    # the sawtooth shed
+    shadow(6, 27, 22, 41); rect(6, 27, 22, 41, 3)
+    for y in range(27, 41):
+        for x in range(6, 22):
+            k = (x - 6) % 4
+            g[y][x] = 7 if k == 0 else 3 if k < 3 else 6
+    for x in range(6, 22):
+        g[27][x] = 7; g[40][x] = 6
+    # stacks and tanks
+    disc(39, 9, 4.2, hole=1.8); disc(39, 19, 3.4, hole=1.4)
+    for cx, cy in ((29, 30), (37, 30), (33, 38)):
+        disc(cx, cy, 3.3)
+    # crates by the gate (south)
+    for x0 in (24, 27):
+        rect(x0, 41, x0 + 2, 43, 7); g[42][x0 + 1] = 6
+    for x in range(22, 26):              # the gate in the south wall
+        g[45][x] = 4
+    return g
 
 
 def crater(g, cx, cy, r, seed):
     rnd = random.Random(seed)
     for y in range(len(g)):
         for x in range(len(g[0])):
-            d = math.hypot(x + 0.5 - cx, y + 0.5 - cy) + rnd.uniform(-1, 1)
-            if d < r * 0.55:
+            d = math.hypot(x + 0.5 - cx, y + 0.5 - cy) + rnd.uniform(-0.8, 0.8)
+            if d < r * 0.45:
                 g[y][x] = 6
-            elif d < r and rnd.random() < 0.6:
-                g[y][x] = 4 if rnd.random() < 0.5 else 6
+            elif d < r * 0.7:
+                g[y][x] = 4 if (x - cx) + (y - cy) > 0 else 6     # lit far rim (down-right)
+            elif d < r and rnd.random() < 0.5:
+                g[y][x] = 6 if rnd.random() < 0.6 else 3
 
 
-def factory(stage):
-    g = canvas(48, 48, 400)
-    fill(g, 2, 2, 46, 46, 4)                       # the yard
-    for x in range(2, 46):
-        g[2][x] = g[45][x] = 7
-    for y in range(2, 46):
-        g[y][2] = g[y][45] = 7
-    box(g, 6, 6, 30, 24, 3)                       # the main hall
-    for x in range(8, 28, 4):                      # its roof lights
-        fill(g, x, 9, x + 2, 21, 7)
-    box(g, 6, 28, 20, 40, 3)                       # stores
-    disc(g, 36, 12, 5, 6, 7)                       # chimneys
-    disc(g, 36, 12, 2.4, 6)
-    disc(g, 38, 26, 4, 6, 7)
-    disc(g, 38, 26, 1.8, 6)
-    box(g, 26, 32, 42, 42, 7)                      # tanks
-    for y in range(34, 40):
-        g[y][34] = 6
-    if stage >= 1:                                 # damaged: holes and scorch
-        rnd = random.Random(401)
-        for cx, cy, r in ((14, 14, 6), (24, 18, 5), (12, 34, 5), (36, 14, 5)):
-            crater(g, cx, cy, r, rnd.randrange(1000))
-    if stage >= 2:                                 # destroyed: rubble
-        g2 = canvas(48, 48, 402)
-        rnd = random.Random(403)
-        for _ in range(26):
-            cx, cy, r = rnd.uniform(4, 44), rnd.uniform(4, 44), rnd.uniform(3, 7)
-            crater(g2, cx, cy, r, rnd.randrange(1000))
-        for _ in range(40):
-            x, y = rnd.randrange(4, 44), rnd.randrange(4, 44)
-            g2[y][x] = 7
-        g = g2
-    return g
-
-
-def turret(dead):
-    g = canvas(16, 16, 500)
-    if dead:
-        crater(g, 8, 8, 7, 501)
-        return g
-    # a sandbagged gun pit: a ring of bags (beach-coloured, seams and their
-    # shadows dark), a dark inner wall in shadow, a concrete floor for the
-    # gun (a BOB on the other playfield, turning to aim), ammo by the gap
-    for y in range(16):
-        for x in range(16):
-            dx, dy = x + 0.5 - 8, y + 0.5 - 8
-            d = math.hypot(dx, dy)
-            a = math.atan2(dy, dx)
-            if d <= 7.6:
-                if d > 5.0:
-                    seam = (a * 12 / math.pi) % 2.0                # 12 bags round
-                    row = (d - 5.0) > 1.3                           # two courses
-                    if row:
-                        seam = (seam + 1.0) % 2.0
-                    g[y][x] = 6 if seam < 0.38 else 7 if (dx + dy < -3 and seam > 1.2) else 4
-                elif d > 4.0:
-                    g[y][x] = 6 if dx + dy < 2 else 3               # the wall's inner face
-                else:
-                    g[y][x] = 3                                     # concrete floor
-    for y in range(12, 16):                                         # the gap, south-east
-        for x in range(11, 14):
-            if g[y][x] in (4, 7, 6):
-                g[y][x] = 6 if y == 12 or x == 11 else 5
-    fill(g, 12, 13, 14, 15, 7)                                      # ammo crates
-    g[14][12] = 6
-    for y in range(16):                                             # cast shadow, down-right
-        for x in range(16):
-            d = math.hypot(x + 0.5 - 9.2, y + 0.5 - 9.2)
-            if 7.6 < d <= 8.4 and math.hypot(x + 0.5 - 8, y + 0.5 - 8) > 7.6 and g[y][x] == 5:
-                g[y][x] = 6
-    return g
-
-
-def radar(dead):
-    g = canvas(16, 16, 510)
-    if dead:
-        crater(g, 8, 8, 7, 511)
-        return g
-    box(g, 2, 2, 13, 13, 4)
-    disc(g, 7.5, 7.5, 2.5, 6, 7)
-    return g
-
-
-def shipyard():
-    g = canvas(64, 32, 520)
-    box(g, 1, 1, 62, 30, 4)
-    fill(g, 6, 6, 58, 22, 2)                       # the dry dock (water)
-    for x in range(6, 58):
-        g[6][x] = 6
-        g[21][x] = 7
-    for x in range(4, 60, 6):                      # crane rails and gantries
-        g[3][x] = g[3][x + 1] = 6
-        g[26][x] = g[26][x + 1] = 6
-    box(g, 20, 2, 24, 28, 7)                       # a gantry crane over the dock
-    box(g, 44, 2, 48, 28, 7)
-    return g
-
-
-def airstrip():
-    g = canvas(80, 16, 530)
-    fill(g, 0, 2, 80, 14, 6)                       # tarmac
-    for x in range(0, 80):
-        g[2][x] = g[13][x] = 7
-    for x in range(22, 78, 8):                     # centreline
-        fill(g, x, 7, x + 4, 9, 7)
-    disc(g, 8, 8, 6.5, 6, 7)                       # the helipad: an H
-    for y in range(4, 12):
-        g[y][5] = g[y][10] = 7
-    for x in range(5, 11):
-        g[8][x] = 7
-    return g
-
-
-def road(vertical):
-    g = canvas(16, 16, 540)
-    for y in range(16):
-        for x in range(5, 11):
-            g[y][x] = 4
-        g[y][4] = g[y][11] = 6
-        if y % 6 < 3:
-            g[y][7] = 7
-    return [list(r) for r in zip(*g)] if not vertical else g
-
-
-def pier(vertical):
-    g = blank(2)
-    for y in range(16):
-        for x in range(4, 12):
-            g[y][x] = 4 if y % 3 else 6
-        g[y][3] = g[y][12] = 6
-    return [list(r) for r in zip(*g)] if not vertical else g
+def factory_stages():
+    f0 = factory_from_raw()
+    f1 = [r[:] for r in f0]
+    for i, (cx, cy, r) in enumerate(((14, 16, 6), (30, 12, 5), (22, 34, 6), (38, 30, 4))):
+        crater(f1, cx, cy, r, 40 + i)
+    f2 = [r[:] for r in f0]
+    rnd = random.Random(9)
+    for i in range(22):
+        crater(f2, rnd.uniform(4, 44), rnd.uniform(4, 44), rnd.uniform(3.5, 7), 60 + i)
+    for _ in range(30):
+        x, y = rnd.randrange(3, 45), rnd.randrange(3, 45)
+        f2[y][x] = 7
+    return f0, f1, f2
 
 
 def cut(img, tw, th):
-    out = []
-    for ty in range(th):
-        for tx in range(tw):
-            out.append([row[tx * T:(tx + 1) * T] for row in img[ty * T:(ty + 1) * T]])
-    return out
+    return [[row[tx * T:(tx + 1) * T] for row in img[ty * T:(ty + 1) * T]] for ty in range(th) for tx in range(tw)]
 
 
-def tiles():
+def from_current(n):
+    """a tile from the game's current kit (unchanged in the pilot), as pens"""
+    _, frames = read_txt(GAME + '/art/tiles.txt')
+    return [[0 if ch == '.' else int(ch) for ch in row] for row in frames[n]]
+
+
+
+
+def _land(w, h):
+    return [[LAND[y % T][x % T] for x in range(w)] for y in range(h)]
+
+
+def _shadow_box(g, x0, y0, x1, y1, d=2):
+    for y in range(y0 + d, min(len(g), y1 + d)):
+        for x in range(x0 + d, min(len(g[0]), x1 + d)):
+            if not (x0 <= x < x1 and y0 <= y < y1):
+                g[y][x] = 6
+
+
+def _block(g, x0, y0, x1, y1, face, shadow=True):
+    if shadow:
+        _shadow_box(g, x0, y0, x1, y1)
+    for y in range(y0, y1):
+        for x in range(x0, x1):
+            g[y][x] = face
+    for x in range(x0, x1):
+        g[y0][x] = 7; g[y1 - 1][x] = 6
+    for y in range(y0, y1):
+        g[y][x0] = 7; g[y][x1 - 1] = 6
+
+
+def turret_pit(dead):
+    g = _land(16, 16)
+    if dead:
+        crater(g, 8, 8, 7, 501)
+        for a in range(0, 360, 60):                      # scattered bags
+            x = int(8 + math.cos(math.radians(a + 20)) * 6.5); y = int(8 + math.sin(math.radians(a + 20)) * 6.5)
+            if 0 <= x < 15 and 0 <= y < 15:
+                g[y][x] = 4; g[y][x + 1] = 6
+        return g
+    for y in range(16):
+        for x in range(16):
+            dx, dy = x + 0.5 - 8, y + 0.5 - 8
+            d = math.hypot(dx, dy); a = math.atan2(dy, dx)
+            ds = math.hypot(dx - 1, dy - 1)
+            if d <= 5.4:
+                g[y][x] = 3                              # the concrete floor (under the gun sprite)
+            elif d <= 7.7:
+                seam = (a * 10 / math.pi + (0.5 if d > 6.6 else 0)) % 2.0
+                lit = -(dx * 0.6 + dy * 0.8) / d
+                g[y][x] = 6 if seam < 0.35 else (7 if lit > 0.55 and seam > 1.3 else 4)
+                if d > 7.0 and lit < -0.3:
+                    g[y][x] = 6                          # the ring's shaded outer face
+            elif ds <= 7.9:
+                g[y][x] = 6                              # cast shadow, down-right
+    return g
+
+
+def radar_tile(dead):
+    g = _land(16, 16)
+    if dead:
+        crater(g, 8, 8, 7, 511)
+        return g
+    _block(g, 1, 1, 14, 14, 3)
+    for y in range(16):
+        for x in range(16):
+            dx, dy = x + 0.5 - 7.5, y + 0.5 - 7.5
+            d = math.hypot(dx, dy)
+            if d <= 4.6:
+                far = (dx * 0.6 + dy * 0.8) / max(d, 0.1)    # concave dish: its far (down-right) inside is lit
+                if d > 3.7:
+                    g[y][x] = 7 if far < -0.2 else 6        # rim: lit top-left lip, shaded far lip
+                else:
+                    g[y][x] = 4 if far > 0.25 else 3 if d > 1.2 else 6
+    g[7][7] = 6; g[6][6] = 7
+    return g
+
+
+def crater_tile():
+    g = _land(16, 16)
+    crater(g, 8, 8, 7, 551)
+    return g
+
+
+def shipyard_tiles():
+    g = _land(64, 32)
+    _block(g, 1, 1, 63, 31, 3)
+    for y in range(7, 23):                               # the dry dock: water
+        for x in range(6, 58):
+            g[y][x] = 2
+    for x in range(6, 58):
+        g[7][x] = 6; g[22][x] = 7                        # shaded north wall, lit south wall
+    for y in range(7, 23):
+        g[y][6] = 6; g[y][57] = 7
+    for y in range(10, 20):                              # a hull on the slip: keel, ribs, pointed bow
+        for x in range(12, 52):
+            half = 4.5 if x < 44 else 4.5 * (1 - (x - 44) / 8)
+            d = abs(y + 0.5 - 15)
+            if d <= half:
+                g[y][x] = 3 if (d > half - 1.2 or d < 0.6) else (6 if x % 3 == 0 else 2)
+    for x0 in (20, 42):                                  # two gantry cranes across it
+        _shadow_box(g, x0, 2, x0 + 3, 29, 1)
+        for y in range(2, 29):
+            g[y][x0] = 7; g[y][x0 + 1] = 4; g[y][x0 + 2] = 6
+    for x in range(3, 60, 4):                            # rails
+        g[4][x] = g[4][x + 1] = 6
+        g[26][x] = g[26][x + 1] = 6
+    _block(g, 58, 3, 62, 9, 4, shadow=False)             # a shed
+    return cut(g, 4, 2)
+
+
+def airstrip_tiles():
+    g = _land(80, 16)
+    for y in range(2, 14):
+        for x in range(80):
+            g[y][x] = 3                                  # concrete runway
+    for x in range(80):
+        g[2][x] = 7; g[13][x] = 6; g[14][x] = 6          # lit north edge, shaded south edge + shadow
+    for x in range(22, 78, 8):                           # centreline
+        for xx in range(x, x + 4):
+            g[8][xx] = 6
+    for y in range(16):                                  # the helipad (same place: x 8): a ring and an H
+        for x in range(16):
+            d = math.hypot(x + 0.5 - 8, y + 0.5 - 8)
+            if 5.0 <= d <= 6.4:
+                g[y][x] = 4
+    for y in range(5, 11):
+        g[y][5] = g[y][10] = 6
+    for x in range(5, 11):
+        g[8][x] = 6
+    return cut(g, 5, 1)
+
+
+def road_tile(vertical):
+    g = _land(16, 16)
+    for y in range(16):
+        for x in range(5, 11):
+            g[y][x] = 4
+        g[y][4] = 6; g[y][11] = 6
+        if y % 6 < 3:
+            g[y][7] = 3
+    return g if vertical else [list(r) for r in zip(*g)]
+
+
+def pier_tile(vertical):
+    g = [[2] * 16 for _ in range(16)]
+    for y in range(16):
+        for x in range(5, 12):
+            g[y][x] = 4 if y % 3 else 6                  # planks
+        g[y][4] = 7; g[y][12] = 6                        # lit / shaded rails
+        g[y][13] = 0                                     # its shadow on the water
+    for y in (1, 8, 15):
+        g[y][3] = 6; g[y][13] = 6                        # pilings
+    return g if vertical else [list(r) for r in zip(*g)]
+
+
+def full_kit():
     out = []
     for m in range(16):
-        out.append(coast(m, 100 + m))
+        out.append([[0] * T for _ in range(T)] if m == 0 else (LAND if m == 15 else coast(m, 100 + m)))
     for i in range(4):
-        out.append(sea(200 + i))
-    for i, k in enumerate(['scrub', 'scrub', 'scrub', 'forest', 'forest', 'forest', 'rocks', 'rocks']):
-        out.append(land(k, 300 + i))
-    for stage in range(3):
-        out += cut(factory(stage), 3, 3)
-    out += [turret(0), turret(1), radar(0), radar(1)]
-    out += cut(shipyard(), 4, 2)
-    out += cut(airstrip(), 5, 1)
-    out += [road(0), road(1), pier(0), pier(1)]
-    c = canvas(16, 16, 550)
-    crater(c, 8, 8, 7, 551)
-    out.append(c)
+        out.append(sea(200 + i, 2 + (i % 2)))
+    out += [LAND, land_variant(LAND, 301, 1), land_variant(LAND, 302, 2),
+            forest(303), forest(304), forest(305), rocks(LAND, 306), rocks(LAND, 307)]
+    for f in factory_stages():
+        out += cut(f, 3, 3)
+    out += [turret_pit(0), turret_pit(1), radar_tile(0), radar_tile(1)]
+    out += shipyard_tiles()
+    out += airstrip_tiles()
+    out += [road_tile(0), road_tile(1), pier_tile(0), pier_tile(1)]
+    out.append(crater_tile())
     assert len(out) == 77, len(out)
     return out
 
 
-def main():
-    ts = tiles()
-    with open(os.path.join(ART, 'tile_pal.txt'), 'w') as f:
+PAL1 = ['0x026', '0x6CE', '0x29B', '0xDDD', '0xEC8', '0x6A3', '0x352', '0xFFE']
+NAMES = ['deep water', 'wave crest', 'shallow', 'surf', 'beach', 'land', 'land dark', 'bright']
+
+
+def write_kit(art_dir):
+    ts = full_kit()
+    PENS = '01234567'
+    with open(os.path.join(art_dir, 'tile_pal.txt'), 'w') as f:
         f.write('# PF2 terrain pens (colours 8-15 on screen); theatre 1, band 1. The copper\n'
-                '# loads each island band\'s own set (art/tools/theatres.py).\n')
-        for i, (c, n) in enumerate(zip(PAL, NAMES)):
+                "# loads each island band's own set (art/tools/theatres.py).\n")
+        for i, (c, n) in enumerate(zip(PAL1, NAMES)):
             f.write(f'{i}  {c}  {"transparent" if i == 0 else n}\n')
-    with open(os.path.join(ART, 'tiles.txt'), 'w') as f:
+    with open(os.path.join(art_dir, 'tiles.txt'), 'w') as f:
         f.write('# Terrain tiles 16x16 (PF2), one frame per tile: see art/tools/tiles.py\n')
         f.write('# (drawn by that script - edit it, not this)\ncolors\n  .  transparent\n')
         for i in range(1, 8):
-            f.write(f'  {PENS[i]}  {PAL[i]}\n')
+            f.write(f'  {PENS[i]}  {PAL1[i]}\n')
         for g in ts:
             f.write('frame\n')
             for row in g:
                 f.write(''.join('.' if p == 0 else PENS[p] for p in row) + '\n')
-    # for Tiled (art/maps/*.tmj): the tiles as one image, 8 a row, and the tileset
-    import struct
-    import zlib
-    cols, rgb = 8, [tuple(int(c[i], 16) * 17 for i in (2, 3, 4)) for c in PAL]
+    cols, rgb = 8, [tuple(int(c[i], 16) * 17 for i in (2, 3, 4)) for c in PAL1]
     rows_n = (len(ts) + cols - 1) // cols
     img = [[rgb[0]] * (cols * T) for _ in range(rows_n * T)]
     for i, g in enumerate(ts):
@@ -356,13 +468,20 @@ def main():
     def chunk(tag, d):
         return struct.pack('>I', len(d)) + tag + d + struct.pack('>I', zlib.crc32(tag + d))
     raw = b''.join(b'\0' + bytes(v for p in r for v in p) for r in img)
-    with open(os.path.join(ART, 'tiles.png'), 'wb') as f:
+    with open(os.path.join(art_dir, 'tiles.png'), 'wb') as f:
         f.write(b'\x89PNG\r\n\x1a\n' + chunk(b'IHDR', struct.pack('>IIBBBBB', cols * T, rows_n * T, 8, 2, 0, 0, 0)) +
                 chunk(b'IDAT', zlib.compress(raw, 9)) + chunk(b'IEND', b''))
-    with open(os.path.join(ART, 'tiles.tsx'), 'w') as f:
+    with open(os.path.join(art_dir, 'tiles.tsx'), 'w') as f:
         f.write(f'<?xml version="1.0" encoding="UTF-8"?>\n<tileset version="1.10" name="tiles" tilewidth="16" '
                 f'tileheight="16" tilecount="{len(ts)}" columns="{cols}">\n'
                 f' <image source="tiles.png" width="{cols * T}" height="{rows_n * T}"/>\n</tileset>\n')
+    return ts
+
+
+
+
+def main():
+    ts = write_kit(ART)
     print(f'{len(ts)} tiles')
 
 

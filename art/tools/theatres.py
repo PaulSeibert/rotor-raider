@@ -284,9 +284,9 @@ def main():
           [(30, 22, 12), (84, 16, 10), (132, 24, 10),
            (22, 60, 10), (74, 64, 11), (128, 62, 12),
            (40, 104, 11), (90, 108, 10), (134, 106, 10)],
-          [['0x124', '0x9BE', '0x46A', '0xEEF', '0xCCD', '0xEEF', '0x99B', '0xFFF'],    # ice
+          [['0x124', '0x9BE', '0x46A', '0xEEF', '0x9AB', '0xBCD', '0x789', '0xFFF'],    # ice (pilot: land off-white so structures read)
            ['0x125', '0x9BE', '0x46A', '0xDDE', '0xBBA', '0x897', '0x564', '0xEEF'],    # tundra
-           ['0x013', '0x8AD', '0x359', '0xDDE', '0xAAB', '0xCCD', '0x667', '0xFFF']],   # snowy rock
+           ['0x013', '0x8AD', '0x359', '0xDDE', '0x99A', '0xABC', '0x667', '0xFFF']],   # snowy rock
           factories=[0, 2, 3, 5, 6, 8], radars=[1, 4, 7], shipyard=1, airstrip=4)
 
 
