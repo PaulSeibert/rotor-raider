@@ -1541,28 +1541,53 @@ __attribute__((noinline)) static void hudUpdate(UBYTE ubBfr) {
 static UBYTE s_ubSkillKeyWait;
 static const UBYTE s_pDigitKeys[6] = {KEY_0, KEY_1, KEY_2, KEY_3, KEY_4, KEY_5};
 
+// The keys that act once (P, M, Ctrl+L, 9, 0-5) are latched at the end of a
+// picture, after its vertical blank, and acted on in the next. A key reaches
+// the game by the CIA's keyboard interrupt some time after it is pressed;
+// read at the top of the picture, a key that arrives in the same few hundred
+// cycles was seen in this picture or the next depending on how fast the CPU
+// got there - on the A1200, the code's layout alone moved the test jump a
+// picture (and the AA guns' timing with it). A whole picture later, it has
+// always arrived.
+#define KL_PAUSE 1
+#define KL_MUSIC 2
+#define KL_SKILL 4                    // Ctrl+L
+#define KL_JUMP 8                     // 9
+static UBYTE s_ubKeysLatched, s_ubDigitLatched;   // KL_*; the digit + 1 (0: none)
+
+static void keysLatch(void) {
+	if(keyUse(KEY_P)) s_ubKeysLatched |= KL_PAUSE;
+	if(keyUse(KEY_M)) s_ubKeysLatched |= KL_MUSIC;
+	if(keyCheck(KEY_CONTROL) && keyUse(KEY_L)) s_ubKeysLatched |= KL_SKILL;
+	if(keyUse(KEY_9)) s_ubKeysLatched |= KL_JUMP;
+	for(UBYTE d = 0; d < 6; ++d) if(keyUse(s_pDigitKeys[d])) s_ubDigitLatched = (UBYTE)(d + 1);
+}
+
 static void skillKeys(void) {
-	if(keyCheck(KEY_CONTROL) && keyUse(KEY_L)) s_ubSkillKeyWait = 100;
+	UBYTE ubKeys = s_ubKeysLatched, ubDigit = s_ubDigitLatched;
+	s_ubKeysLatched &= (UBYTE)~(KL_SKILL | KL_JUMP);
+	s_ubDigitLatched = 0;
+	if(ubKeys & KL_SKILL) s_ubSkillKeyWait = 100;
 	if(!s_ubSkillKeyWait) return;
 	--s_ubSkillKeyWait;
-	if(keyUse(KEY_9)) {
+	if(ubKeys & KL_JUMP) {
 		// (testing) GODMODE: to the next factory
 		s_ubSkillKeyWait = 0;
 		if(logicTestJump(&s_sGame)) {
 			scrollReset(&s_sGame.map, s_sGame.camX, s_sGame.camY);   // the whole screen: frames
 			agkPerfSkip();
 			agkPrint("AGK test jump\n");
+			agkState("jumped", s_sGame.frame);   // (tests/keys.agk: the same picture on every machine)
+			agkEnd();
 		}
 		return;
 	}
-	for(UBYTE d = 0; d < 6; ++d) {
-		if(keyUse(s_pDigitKeys[d])) {
-			logicSetDifficulty(&s_sGame, d);
-			s_ubSkillKeyWait = 0;
-			agkState("difficulty", d);
-			agkEnd();
-			break;
-		}
+	if(ubDigit) {
+		logicSetDifficulty(&s_sGame, (UBYTE)(ubDigit - 1));
+		s_ubSkillKeyWait = 0;
+		agkState("difficulty", ubDigit - 1);
+		agkState("at", s_sGame.frame);
+		agkEnd();
 	}
 }
 
@@ -1796,11 +1821,12 @@ void genericProcess(void) {
 		splashDestroy();   // (ACE's memFree asks the OS: a few frames, once)
 		agkPerfSkip();
 	}
-	if(keyUse(KEY_P) && s_sGame.state == GS_PLAY) s_isPaused = !s_isPaused;
-	if(keyUse(KEY_M)) {
+	if((s_ubKeysLatched & KL_PAUSE) && s_sGame.state == GS_PLAY) s_isPaused = !s_isPaused;
+	if(s_ubKeysLatched & KL_MUSIC) {
 		s_isMusicOn = !s_isMusicOn;
 		musicFor(s_sGame.state);
 	}
+	s_ubKeysLatched &= (UBYTE)~(KL_PAUSE | KL_MUSIC);
 	skillKeys();
 	if(s_sGame.wantTheatre != 0xFF) theatreLoad(s_sGame.wantTheatre);
 	UBYTE ubBfr = backBuffer();
@@ -1849,6 +1875,7 @@ void genericProcess(void) {
 	copProcessBlocks();
 	agkPerfEnd();
 	while(timerGet() - s_ulFrameVbl < 1) continue;
+	keysLatch();   // (for the next picture: see keysLatch)
 
 	if(s_sGame.frame == 2) {
 		agkState("copper_used", s_uwCopUsed);

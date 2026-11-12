@@ -1,0 +1,22 @@
+# Keys act on the same picture on every machine: GODMODE (Ctrl+L, 0) and the
+# test jump (Ctrl+L, 9), pressed on known pictures, take effect on known
+# pictures. A key read as the picture starts raced the keyboard interrupt:
+# on the A1200 the code's layout alone moved the jump a picture (keysLatch).
+wait-serial "AGK t0"
+wait 10
+press fire 2
+wait-serial "theatre loaded=0"
+wait 10
+key 0x63
+key 0x28
+wait 5
+key 0x0A
+wait 30
+key 0x63
+key 0x28
+wait 5
+key 0x09
+wait 20
+expect-serial "difficulty=0 at=40"
+expect-serial "jumped=75"
+expect-no-serial "AGK ERR"
