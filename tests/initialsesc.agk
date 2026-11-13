@@ -1,0 +1,57 @@
+# Esc in the hall-of-fame initials (the kit's hiscore technique, Paul 2026-11-13): it ends the
+# entry at once and keeps the score with the initials so far, as the 30 s timeout does. It never
+# discards the score and never quits the game from the entry. The same game as initials.agk up to
+# the entry; then P (0x19) and Esc (0x45): the table shows "P  ", the floppy has it, and the game
+# goes on to the title (the held Esc must not quit from the table). Keys are held 25 frames by the
+# emulator.
+wait-serial "AGK t0" 3000   # (the floppy loads run after the splash: seconds)
+expect-serial "AGK scores default\nAGK scores names=DPS/PRS/KES/MIR/ACE\nAGK top=10000 last=500"
+wait 10
+press fire 2
+wait-serial "theatre loaded=0"
+# (the theatre card first: a fresh press of fire skips it)
+wait 3
+press fire 1
+wait 24
+key 0x63
+key 0x28
+wait 5
+key 0x0A
+wait 30
+key 0x63
+key 0x28
+wait 5
+key 0x09
+wait 20
+press fire2 2
+wait 40
+press fire2 2
+wait 40
+press fire2 2
+wait-serial "factory destroyed"
+wait 40
+key 0x63
+key 0x28
+wait 5
+key 0x03
+wait 20
+key 0x63
+key 0x28
+wait 5
+key 0x12
+wait-serial "state=7" 100
+wait 60
+key 0x19
+wait 3
+screenshot typed
+key 0x45
+wait-serial "state=6" 40
+wait-serial "scores names=" 600
+wait 40
+screenshot table
+# fifth, between the defaults' 1,500 and 500 (which drops off): the P typed before Esc
+expect-serial "AGK scores saved\nAGK scores names=DPS/PRS/KES/MIR/P  \nAGK top=10000 last=1\d{3}"
+expect-no-serial "AGK paused"
+expect-no-serial "AGK ERR"
+# the game carried on: the table gives way to the title (a quit on the held Esc would never get here)
+wait-serial "state=0" 600

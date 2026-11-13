@@ -96,7 +96,7 @@ Choose the steering on the title screen with left/right.
 | Hold fire (0.3 s) | Drop a bomb | same |
 | Second button (or B) | Drop a bomb at once; then holding fire fires the gun continuously | same |
 
-Keys: arrows, Space = fire, B = bomb, P = pause, M = music on/off, Esc = quit. When your score makes the hall of fame: type your initials, or use the stick (those keys are then just letters: P, M and Esc don't pause, mute or quit).
+Keys: arrows, Space = fire, B = bomb, P = pause, M = music on/off, Esc = quit. When your score makes the hall of fame: type your initials, or use the stick (those keys are then just letters: P and M don't pause or mute). Esc ends the entry and keeps your score with the initials so far; it doesn't quit.
 
 **Bombs** fall ahead of you in an arc: the blinking marker on the ground
 shows where. You carry 8. **Land** on the carrier's deck (or the friendly

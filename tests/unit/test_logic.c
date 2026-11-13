@@ -1428,6 +1428,25 @@ static void testInitialsTyped(void) {
 	CHECK(g.state == GS_SCORES && memcmp(g.table.pEntries[2].name, "A  ", 3) == 0);
 }
 
+// Esc (raw 0x45) in the initials ends the entry at once and keeps the score, with the initials so
+// far: what the 30 s timeout does. It is not discarded, and the table follows (it is saved there).
+static void testInitialsEscKeepsTheScore(void) {
+	endGameWith(4500, 1, GS_OVER);
+	CHECK(g.state == GS_ENTRY && g.newRank == 2);
+	step(KEYIN(0x10), 1);                           // Q
+	step(NONE, 1);
+	CHECK(g.state == GS_ENTRY);
+	step(KEYIN(0x45), 1);                           // Esc
+	CHECK(g.state == GS_SCORES && g.scoresChanged);
+	CHECK(memcmp(g.table.pEntries[2].name, "Q  ", 3) == 0 && g.table.pEntries[2].score == 4500);
+	// at once: the default initials stand and the score is on the table
+	endGameWith(4500, 1, GS_OVER);
+	CHECK(g.state == GS_ENTRY);
+	step(KEYIN(0x45), 1);
+	CHECK(g.state == GS_SCORES && g.scoresChanged && memcmp(g.table.pEntries[2].name, "A  ", 3) == 0);
+	CHECK(g.table.pEntries[2].score == 4500);
+}
+
 // Initials typed with digits must survive the file: "K1 " was saved fine and
 // thrown away at the next boot (hiUnpack refused anything but the stick's letters)
 static void testDigitInitialsSurviveTheFile(void) {
@@ -1899,6 +1918,7 @@ int main(void) {
 	testHallDefaults();
 	testScoreMakesTheHallOfFame();
 	testInitialsTyped();
+	testInitialsEscKeepsTheScore();
 	testDigitInitialsSurviveTheFile();
 	testHallTimesOut();
 	testVictoryReachesAll();

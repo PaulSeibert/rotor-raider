@@ -2087,7 +2087,9 @@ void genericProcess(void) {
 	s_ulFrameVbl = timerGet();
 	keyProcess();
 	joyProcess();
-	if(keyCheck(KEY_ESCAPE) && s_sGame.state != GS_ENTRY) {   // (not while the initials are typed)
+	// Esc quits as a fresh press, never from the initials: there hiKeyPoll takes it (it ends the
+	// entry and keeps the score), and that Esc, still held after, must not quit from the table
+	if(s_sGame.state != GS_ENTRY && keyUse(KEY_ESCAPE)) {
 		gameExit();
 		return;
 	}
@@ -2137,6 +2139,7 @@ void genericProcess(void) {
 	UBYTE ubStateBefore = s_sGame.state;
 	if(!s_isPaused) {
 		logicUpdate(&s_sGame, &sIn);
+		if(ubStateBefore == GS_ENTRY && s_sGame.state != GS_ENTRY) hiKeyFlush();   // (an Esc behind another key isn't a quit)
 		playSounds(ubStateBefore);
 		// a theatre starting: this picture clears the title and the next sets
 		// the theatre out (s_ubSkipFrames); the meter counts neither

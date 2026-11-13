@@ -112,6 +112,7 @@ uint8_t hiEditUpdate(tHiEdit *pE, tHiTable *pT, int8_t dx, int8_t dy, uint8_t is
 #define HI_KEY_BACKSPACE 0x41
 #define HI_KEY_NUMENTER 0x43
 #define HI_KEY_RETURN 0x44
+#define HI_KEY_ESCAPE 0x45
 
 /** The character a raw keycode types: 'A'-'Z', '0'-'9' (the row of digits and
  *  the numeric keypad) or ' ' for Space; 0 for any other key (and for a code
@@ -122,7 +123,9 @@ char hiKeyChar(uint8_t ubRawKey);
  *  character goes in at the cursor and the cursor moves on (the third ends the
  *  entry, as fire does on the last place); Backspace blanks the place before
  *  and moves back; Return (or the keypad's Enter) ends the entry with the
- *  places not reached as they are. Any other key does nothing but still
+ *  places not reached as they are; Esc does the same (it ends the entry at once
+ *  and keeps the score, as the timeout does; it never discards it and the
+ *  game must not quit on it from here). Any other key does nothing but still
  *  restarts the timeout, like every key. Returns 1 once the entry is done. The
  *  stick (hiEditUpdate) and the keys can be mixed in the same entry. */
 uint8_t hiEditKey(tHiEdit *pE, tHiTable *pT, uint8_t ubRawKey);
