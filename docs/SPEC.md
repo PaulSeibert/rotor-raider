@@ -471,7 +471,7 @@ copied into `src/` (`hiscore.c/h`, `hiscore_disk.c`, `attract.c/h`, `missionmap.
   ACE 500 CORAL 3. The HUD's HI is the table's best and rises live in games that count.
 - **Invincible (GODMODE) games and the demo never count** (no entry, no HI).
 - When a game ends (GAME OVER or ALL THEATRES CLEARED, 350 frames, or fire after 100 of them) a
-  score that makes the table asks for initials: up/down a letter (held: every 9 frames), fire the next
+  score that makes the table asks for initials: up/down a letter (held: every 8 frames), fire the next
   letter, left back one; fire held from the end screen is not a press; 30 s with no input and what is
   chosen stands. **The initials can be typed on the Amiga keyboard (requirement, decided by Paul,
   2026-11-12; the DPS polish baseline for every DPS Amiga game; the behaviour is the kit's
@@ -482,7 +482,7 @@ copied into `src/` (`hiscore.c/h`, `hiscore_disk.c`, `attract.c/h`, `missionmap.
   any key restarts the 30 s; upper case only, shifted or not (raw keycodes: the key's place on a
   US-style keyboard). **While the entry is up the game's own keys are off:** P, M, Ctrl+L and the
   test keys behind it, Esc, B and Space-as-fire are ignored (typing P or M must not pause the game
-  or mute the music; Esc does not quit). Then the table (400 frames, the new entry between dashes), "SAVING TO DISK...", the
+  or mute the music; Esc does not quit). Initials with digits ("K1 ") are saved and loaded like any other: the file accepts A-Z, space, '.' and 0-9. Then the table (400 frames, the new entry between dashes), "SAVING TO DISK...", the
   save, and "SAVED TO DISK" (or "DISK WRITE-PROTECTED: NOT SAVED", "DISK ERROR: NOT SAVED"). Fire
   does not skip the table until the save is done.
 - The file: `raiderscores` in the floppy's root, 56 bytes: magic `RDH1`, five entries (initials, theatre,
@@ -662,3 +662,4 @@ disk is writable and keys are held in real time.)
 | v1.1 | 2026-11-11 | decided by Paul: the hardest AA tell 8 -> 12 frames (table as it plays 24 / 20 / 16 / 16 / 12: Paul asked for 14 on skill 4, quantised to the guns' 4-frame cadence); interceptor missiles get a tell (16 frames on normal, scaled the same, a jet flash and a lock-on beep, aborted when the jet leaves the screen); the README download table follows the version. Landed and described as landed: the pilot art, the restyled HUD with a working minimap (merge 25cbff5), the jet break-off near decks (8b897e5), the key latch (d8fe879). The carrier duplicate-draw report: open, not reproduced in vAmiga. Pacing re-measured on the jet-tell build: threat mean 0.62 / 0.96 / 1.33 (was 0.64 / 1.02 / 1.35), shots fired a minute 29 / 44 / 66 (was 30 / 46 / 67), rest beats 9 / 8 / 8 (was 12 / 10 / 9) |
 | v1.3 | 2026-11-12 | requirement, decided by Paul (the DPS polish baseline, all DPS Amiga games): the hall of fame's initials can be typed on the Amiga keyboard, alone or mixed with the stick; the game's own keys (P, M, Ctrl+L, Esc, B, Space as fire) are off while the entry is up. Section 10.1; kit technique `hiscore` (Keyboard entry); `tests/initials.agk`, `tests/unit/test_logic.c` testInitialsTyped |
 | v1.2 | 2026-11-12 | decided by Paul: release 1.5 adds a hall of fame saved to the floppy (top 5, GODMODE and the demo never count), an attract loop with a recorded Coral Reach demo, and a card before each theatre (map, carrier, factories, brief, route). Section 10.1; decisions 11-13; open question 6 closed except the ending |
+| v1.4 | 2026-11-13 | bug fix, no design change: a name typed with a digit ("K1 ") was saved but refused by the file's name check at the next boot, so the table fell back to the defaults; the check now takes 0-9 (kit `hiscore` technique fix). Also: the stick's repeat is every 8 frames (`HI_EDIT_REPEAT`), the spec said 9. Section 10.1; `tests/unit/test_logic.c` testDigitInitialsSurviveTheFile |

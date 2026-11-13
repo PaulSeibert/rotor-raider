@@ -1428,6 +1428,23 @@ static void testInitialsTyped(void) {
 	CHECK(g.state == GS_SCORES && memcmp(g.table.pEntries[2].name, "A  ", 3) == 0);
 }
 
+// Initials typed with digits must survive the file: "K1 " was saved fine and
+// thrown away at the next boot (hiUnpack refused anything but the stick's letters)
+static void testDigitInitialsSurviveTheFile(void) {
+	endGameWith(4500, 1, GS_OVER);
+	step(KEYIN(0x27), 1);                           // K
+	step(KEYIN(0x01), 1);                           // 1
+	step(KEYIN(HI_KEY_RETURN), 1);
+	CHECK(g.state == GS_SCORES && memcmp(g.table.pEntries[2].name, "K1 ", 3) == 0);
+	uint8_t pDisk[HI_BYTES];
+	hiPack(&g.table, &g_sHiConfig, pDisk);
+	tHiTable u = g.table;
+	for(uint8_t i = 0; i < HI_COUNT; ++i) u.pEntries[i].score = 0;   // (so a refusal can't pass as a match)
+	CHECK(hiUnpack(&u, &g_sHiConfig, pDisk));
+	CHECK(memcmp(&u, &g.table, sizeof(u)) == 0);
+	CHECK(memcmp(u.pEntries[2].name, "K1 ", 3) == 0);
+}
+
 static void testHallTimesOut(void) {
 	// the table leaves by itself after SCORES_FRAMES
 	endGameWith(4500, 0, GS_OVER);
@@ -1882,6 +1899,7 @@ int main(void) {
 	testHallDefaults();
 	testScoreMakesTheHallOfFame();
 	testInitialsTyped();
+	testDigitInitialsSurviveTheFile();
 	testHallTimesOut();
 	testVictoryReachesAll();
 	testGodmodeNeverCounts();
