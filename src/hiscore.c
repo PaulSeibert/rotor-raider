@@ -67,7 +67,11 @@ HI_COLD void hiPack(const tHiTable *pT, const tHiConfig *pCfg, uint8_t *pOut) {
 	*p = (uint8_t)uwSum;
 }
 
+// A character a name may hold: the stick's letters, and the digits the keyboard
+// types (hiKeyChar). Without the digits a name like "K1 " saved fine and was
+// thrown away at the next boot.
 HI_COLD static uint8_t hiIsLetter(uint8_t c) {
+	if(c >= '0' && c <= '9') return 1;
 	for(const char *p = HI_LETTERS; *p; ++p) if((uint8_t)*p == c) return 1;
 	return 0;
 }
@@ -142,7 +146,9 @@ HI_COLD uint8_t hiEditUpdate(tHiEdit *pE, tHiTable *pT, int8_t dx, int8_t dy, ui
 }
 
 // What each raw keycode 0x00-0x40 types (0: nothing). Upper case; the same
-// key with or without Shift is the same code.
+// key with or without Shift is the same code. Note raw 0x01 is '1' (the first
+// key after the backtick) and raw 0x00 is the backtick itself, which types
+// nothing; the digit row is 0x01-0x0A.
 static const char s_pKeyChars[0x41] = {
 	0, '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', 0, 0, 0, 0, '0',             // 0x00: ` 1-9 0 - = backslash, none, keypad 0
 	'Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P', 0, 0, 0, '1', '2', '3',         // 0x10: row 1, [ ], (none), keypad 1-3
