@@ -1,7 +1,7 @@
 # Typing the initials on the Amiga keyboard (a DPS requirement, 1.5): the same
 # game as hiscore.agk up to the entry (GODMODE, the test jump, three bombs, the
-# normal skill, the game ended with Ctrl+L, E). Then the keys: Esc (0x45, the
-# game must not quit), P (0x19), M (0x37), Backspace (0x41, takes the M back),
+# normal skill, the game ended with Ctrl+L, E). Then the keys: P (0x19), M (0x37), Backspace (0x41, takes the M back),
+# (Esc has its own test, initialsesc.agk: it ends the entry and keeps the score.)
 # R (0x13), S (0x21: the third letter ends the entry), Return (0x44, nothing
 # left to confirm). The table must show PRS, and typing P and M must not have
 # paused the game or muted the music (the game's own keys are off during the
@@ -43,8 +43,7 @@ wait 5
 key 0x12
 wait-serial "state=7" 100
 wait 60
-key 0x45
-wait 28
+wait 53
 screenshot typing0
 key 0x19
 wait 3

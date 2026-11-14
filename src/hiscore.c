@@ -166,7 +166,7 @@ HI_COLD uint8_t hiEditKey(tHiEdit *pE, tHiTable *pT, uint8_t ubRawKey) {
 	if(ubRawKey == HI_KEY_NONE) return 0;
 	pE->uwLeft = pE->uwFrames;                     // any key restarts the timeout
 	tHiScore *s = &pT->pEntries[pE->ubRank];
-	if(ubRawKey == HI_KEY_RETURN || ubRawKey == HI_KEY_NUMENTER) {
+	if(ubRawKey == HI_KEY_RETURN || ubRawKey == HI_KEY_NUMENTER || ubRawKey == HI_KEY_ESCAPE) {   // (Esc: ends it, the score stays)
 		pE->ubPos = HI_NAME;
 		return 1;
 	}

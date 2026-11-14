@@ -73,7 +73,7 @@ play the whole game with the original title march and no music in the air.
 | stick down | brake, then back off tail first (let go to hover) | (a direction) |
 | fire (one button) | tap: the chin gun; hold 15 frames: a bomb | the same |
 | second button, or B | a bomb at once; then holding fire autofires the gun every 7 frames (the game remembers a two-button pad) | the same |
-| keys | arrows, Space fire, B bomb, P pause, M music, Esc quit | |
+| keys | arrows, Space fire, B bomb, P pause, M music, Esc quit (in the hall-of-fame initials Esc instead ends the entry and keeps the score) | |
 | Ctrl+L, then 0-5 | difficulty (section 7); Ctrl+L, 9 in GODMODE: jump to the next standing factory | |
 
 **Feel in numbers** (`logic.h:285-304`, `logic.c:591-678`)
@@ -478,11 +478,14 @@ copied into `src/` (`hiscore.c/h`, `hiscore_disk.c`, `attract.c/h`, `missionmap.
   `hiscore` technique, "Keyboard entry")**: A-Z and 0-9 (the digit row and the keypad) enter that
   character at the cursor and move on (the third ends the entry, as fire on the last place does);
   Space enters a space; Backspace blanks the place before and moves back; Return confirms at once,
-  the places not reached keeping what they had; the stick keeps working and the two can be mixed;
+  the places not reached keeping what they had; **Esc ends the entry at once and keeps the score with
+  the initials so far, exactly what the 30 s timeout does (decided by Paul, 2026-11-13: it never
+  discards the score and never quits the game from the entry)**; the stick keeps working and the two can be mixed;
   any key restarts the 30 s; upper case only, shifted or not (raw keycodes: the key's place on a
   US-style keyboard). **While the entry is up the game's own keys are off:** P, M, Ctrl+L and the
-  test keys behind it, Esc, B and Space-as-fire are ignored (typing P or M must not pause the game
-  or mute the music; Esc does not quit). Initials with digits ("K1 ") are saved and loaded like any other: the file accepts A-Z, space, '.' and 0-9. Then the table (400 frames, the new entry between dashes), "SAVING TO DISK...", the
+  test keys behind it, B and Space-as-fire are ignored (typing P or M must not pause the game
+  or mute the music). The game's quit is a fresh press of Esc (`keyUse`), so the Esc that ended the
+  entry, still held, does not quit from the table. Initials with digits ("K1 ") are saved and loaded like any other: the file accepts A-Z, space, '.' and 0-9. Then the table (400 frames, the new entry between dashes), "SAVING TO DISK...", the
   save, and "SAVED TO DISK" (or "DISK WRITE-PROTECTED: NOT SAVED", "DISK ERROR: NOT SAVED"). Fire
   does not skip the table until the save is done.
 - The file: `raiderscores` in the floppy's root, 56 bytes: magic `RDH1`, five entries (initials, theatre,
@@ -663,3 +666,4 @@ disk is writable and keys are held in real time.)
 | v1.3 | 2026-11-12 | requirement, decided by Paul (the DPS polish baseline, all DPS Amiga games): the hall of fame's initials can be typed on the Amiga keyboard, alone or mixed with the stick; the game's own keys (P, M, Ctrl+L, Esc, B, Space as fire) are off while the entry is up. Section 10.1; kit technique `hiscore` (Keyboard entry); `tests/initials.agk`, `tests/unit/test_logic.c` testInitialsTyped |
 | v1.2 | 2026-11-12 | decided by Paul: release 1.5 adds a hall of fame saved to the floppy (top 5, GODMODE and the demo never count), an attract loop with a recorded Coral Reach demo, and a card before each theatre (map, carrier, factories, brief, route). Section 10.1; decisions 11-13; open question 6 closed except the ending |
 | v1.4 | 2026-11-13 | bug fix, no design change: a name typed with a digit ("K1 ") was saved but refused by the file's name check at the next boot, so the table fell back to the defaults; the check now takes 0-9 (kit `hiscore` technique fix). Also: the stick's repeat is every 8 frames (`HI_EDIT_REPEAT`), the spec said 9. Section 10.1; `tests/unit/test_logic.c` testDigitInitialsSurviveTheFile |
+| v1.5 | 2026-11-13 | decided by Paul: Esc in the hall-of-fame initials ends the entry at once and keeps the score with the initials so far (as the 30 s timeout does); it never discards the score and never quits from the entry. Section 10.1; kit technique `hiscore` the same; `tests/initialsesc.agk`, `tests/unit/test_logic.c` testInitialsEscKeepsTheScore |
